@@ -66,12 +66,42 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="medications"
+        options={{
+          title: 'Medications',
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="medication" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
           tabBarIcon: ({ color }) => (
             <TabIcon name="user" color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="hydration"
+        options={{
+          title: 'Hydration',
+          tabBarIcon: ({ color }) => (
+            <TabIcon name="water" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="check-in"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+      <Tabs.Screen
+        name="first-responder"
+        options={{
+          href: null, // Hide from tab bar
         }}
       />
     </Tabs>

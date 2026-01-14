@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from '../../src/components/ui/SafeAreaView';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
@@ -8,6 +9,7 @@ import { Colors, Spacing, FontSizes } from '../../src/lib/utils/constants';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const router = useRouter();
 
   return (
     <SafeAreaView>
@@ -55,6 +57,19 @@ export default function ProfileScreen() {
           />
         </Card>
 
+        <Card variant="gradient" padding="lg" style={styles.firstResponderCard}>
+          <Text style={styles.cardTitle}>First Responder Mode</Text>
+          <Text style={styles.cardSubtitle}>
+            Display critical medical information for emergency responders
+          </Text>
+          <Button
+            title="View First Responder Mode 🚑"
+            onPress={() => router.push('/(tabs)/first-responder')}
+            variant="primary"
+            style={styles.cardButton}
+          />
+        </Card>
+
         <Button
           title="Sign Out"
           onPress={signOut}
@@ -98,6 +113,9 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     fontStyle: 'italic',
     marginBottom: Spacing.sm,
+  },
+  firstResponderCard: {
+    marginTop: Spacing.md,
   },
   signOutButton: {
     marginTop: Spacing.xl,

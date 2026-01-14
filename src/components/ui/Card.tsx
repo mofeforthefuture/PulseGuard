@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
+import React, { useRef } from 'react';
+import { View, StyleSheet, ViewStyle, TouchableOpacity, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Colors,
@@ -7,6 +7,7 @@ import {
   BorderRadius,
   Shadows,
   Gradients,
+  Animation,
 } from '../../lib/design/tokens';
 
 interface CardProps {
@@ -26,6 +27,28 @@ export function Card({
   onPress,
   padding = 'md',
 }: CardProps) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    if (onPress) {
+      Animated.spring(scaleAnim, {
+        toValue: 0.98,
+        useNativeDriver: true,
+        ...Animation.spring,
+      }).start();
+    }
+  };
+
+  const handlePressOut = () => {
+    if (onPress) {
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        ...Animation.spring,
+      }).start();
+    }
+  };
+
   const getPadding = () => {
     switch (padding) {
       case 'sm':
@@ -83,12 +106,13 @@ export function Card({
   };
 
   const cardContent = (
-    <View
+    <Animated.View
       style={[
         styles.card,
         {
           padding: getPadding(),
           backgroundColor: variant === 'gradient' ? 'transparent' : getBackgroundColor(),
+          transform: [{ scale: scaleAnim }],
         },
         getShadowStyle(),
         style,
@@ -103,14 +127,16 @@ export function Card({
         />
       ) : null}
       <View style={styles.content}>{children}</View>
-    </View>
+    </Animated.View>
   );
 
   if (onPress) {
     return (
       <TouchableOpacity
         onPress={onPress}
-        activeOpacity={0.9}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
         style={styles.touchable}
       >
         {cardContent}

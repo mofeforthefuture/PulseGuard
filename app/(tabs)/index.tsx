@@ -18,10 +18,8 @@ export default function DashboardScreen() {
           <Text style={styles.cardTitle}>Daily Check-In</Text>
           <Text style={styles.cardSubtitle}>How are you feeling today?</Text>
           <Button
-            title="Check In"
-            onPress={() => {
-              // TODO: Navigate to check-in flow
-            }}
+            title="Check In with ALARA 💬"
+            onPress={() => router.push('/(tabs)/check-in')}
             style={styles.cardButton}
           />
         </Card>
@@ -33,6 +31,18 @@ export default function DashboardScreen() {
             onPress={() => router.push('/(tabs)/emergency')}
             variant="emergency"
             style={styles.emergencyButton}
+          />
+          <Button
+            title="Medications 💊"
+            onPress={() => router.push('/(tabs)/medications')}
+            variant="primary"
+            style={styles.quickActionButton}
+          />
+          <Button
+            title="Hydration 💧"
+            onPress={() => router.push('/(tabs)/hydration')}
+            variant="primary"
+            style={styles.quickActionButton}
           />
         </Card>
 
@@ -76,6 +86,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   emergencyButton: {
+    marginTop: Spacing.sm,
+  },
+  quickActionButton: {
     marginTop: Spacing.sm,
   },
   emptyText: {
