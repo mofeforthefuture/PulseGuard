@@ -66,14 +66,23 @@ export default function OnboardingScreen() {
       }
 
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Get fresh user data to check email confirmation
+        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
         
-        if (session?.user) {
+        if (userError) {
+          console.error('Error getting user:', userError);
+          setCheckingAuth(false);
+          return;
+        }
+        
+        if (currentUser) {
           // Check if email is confirmed
-          if (session.user.email_confirmed_at) {
+          if (currentUser.email_confirmed_at) {
+            console.log('Email confirmed, allowing onboarding');
             setEmailConfirmed(true);
           } else {
             // Email not confirmed, redirect to confirmation screen
+            console.log('Email not confirmed, redirecting to confirmation screen');
             router.replace('/(auth)/email-confirmation');
             return;
           }

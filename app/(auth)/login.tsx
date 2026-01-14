@@ -255,12 +255,20 @@ export default function LoginScreen() {
               />
 
               {step === 1 && (
-                <TouchableOpacity
-                  onPress={() => setStep(0)}
-                  style={styles.backLink}
-                >
-                  <Text style={styles.backText}>← Back to email</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    onPress={() => setStep(0)}
+                    style={styles.backLink}
+                  >
+                    <Text style={styles.backText}>← Back to email</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => router.push('/(auth)/forgot-password')}
+                    style={styles.forgotPasswordLink}
+                  >
+                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+                  </TouchableOpacity>
+                </>
               )}
             </View>
 
@@ -349,6 +357,15 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
+  },
+  forgotPasswordLink: {
+    marginTop: Spacing.sm,
+    alignItems: 'center',
+  },
+  forgotPasswordText: {
+    fontSize: FontSizes.sm,
+    color: Colors.primary,
+    fontWeight: '600',
   },
   signUpLink: {
     marginTop: 'auto',

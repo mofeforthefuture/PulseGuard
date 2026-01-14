@@ -1,7 +1,7 @@
 import React from 'react';
 import { SafeAreaView as RNSafeAreaView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../lib/utils/constants';
+import { Colors } from '../../lib/design/tokens';
 
 interface SafeAreaViewProps {
   children: React.ReactNode;

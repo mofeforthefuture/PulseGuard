@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Image, StyleSheet, Platform, Animated, Text } from 'react-native';
-import { Spacing } from '../../lib/utils/constants';
-import { Colors } from '../../lib/utils/constants';
+import { Spacing, Colors } from '../../lib/design/tokens';
 
 interface ALARAMascotProps {
   size?: number;

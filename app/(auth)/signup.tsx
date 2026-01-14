@@ -24,7 +24,10 @@ export default function SignupScreen() {
   // Navigate to email confirmation after successful signup
   useEffect(() => {
     if (signupSuccess && signupEmail) {
-      router.replace('/(auth)/email-confirmation');
+      router.push({
+        pathname: '/(auth)/email-confirmation',
+        params: { email: signupEmail },
+      });
     }
   }, [signupSuccess, signupEmail, router]);
 
@@ -58,40 +61,65 @@ export default function SignupScreen() {
     setLoading(true);
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      // First, create the user account
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: undefined,
         },
       });
 
       if (signUpError) throw signUpError;
 
-      if (data.user) {
-        // Check if email confirmation is required
-        if (data.session) {
-          // User is immediately authenticated (email confirmation disabled in Supabase)
-          // Use the auth helper to create profile and set user in context
-          try {
-            await signUp(email, password, fullName);
-            router.replace('/(auth)/onboarding');
-          } catch (err: any) {
-            setError(err.message || 'Account created but setup failed. Please try signing in.');
-            setLoading(false);
-          }
-        } else {
-          // Email confirmation required - show confirmation screen
-          setSignupEmail(email);
-          setSignupSuccess(true);
-          setLoading(false);
-        }
-      } else {
+      if (!signUpData.user) {
         throw new Error('Account creation failed');
       }
+
+      // If user is immediately authenticated (email confirmation disabled), go to onboarding
+      if (signUpData.session) {
+        try {
+          await signUp(email, password, fullName);
+          router.replace('/(auth)/onboarding');
+        } catch (err: any) {
+          setError(err.message || 'Account created but setup failed. Please try signing in.');
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Email confirmation required
+      // Supabase automatically sends a confirmation email when signup happens
+      // But we can resend it to ensure it's sent with OTP format if configured
+      console.log('User created, confirmation email should be sent automatically');
+      console.log('Resending verification email to:', email);
+      
+      // Resend the signup confirmation email
+      // This will use the signup email template (which can be configured for OTP)
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: undefined,
+        },
+      });
+
+      if (resendError) {
+        console.error('Resend error:', resendError);
+        console.warn('Could not resend verification email. User can request it manually on confirmation screen.');
+      } else {
+        console.log('Verification email resent successfully');
+      }
+
+      // Navigate to email confirmation screen with OTP flow
+      setSignupEmail(email);
+      setSignupSuccess(true);
+      setLoading(false);
     } catch (err: any) {
+      console.error('Signup error:', err);
       setError(err.message || 'Oops! Something went wrong. Let\'s try again.');
       setLoading(false);
     }

@@ -1,23 +1,51 @@
 import React from 'react';
-import { TextInput, StyleSheet, Text, View, ViewStyle, TextInputProps } from 'react-native';
-import { Colors, Spacing, BorderRadius, FontSizes } from '../../lib/utils/constants';
+import { TextInput, StyleSheet, View, ViewStyle, TextInputProps } from 'react-native';
+import { Typography } from './Typography';
+import {
+  Colors,
+  Spacing,
+  BorderRadius,
+  Typography as TypographyTokens,
+  Shadows,
+} from '../../lib/design/tokens';
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   containerStyle?: ViewStyle;
+  variant?: 'default' | 'elevated';
 }
 
-export function Input({ label, error, containerStyle, style, ...props }: InputProps) {
+export function Input({
+  label,
+  error,
+  containerStyle,
+  style,
+  variant = 'default',
+  ...props
+}: InputProps) {
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Typography variant="label" color="text" style={styles.label}>
+          {label}
+        </Typography>
+      )}
       <TextInput
-        style={[styles.input, error && styles.inputError, style]}
+        style={[
+          styles.input,
+          variant === 'elevated' && styles.inputElevated,
+          error && styles.inputError,
+          style,
+        ]}
         placeholderTextColor={Colors.textLight}
         {...props}
       />
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && (
+        <Typography variant="caption" color="error" style={styles.errorText}>
+          {error}
+        </Typography>
+      )}
     </View>
   );
 }
@@ -27,30 +55,28 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   label: {
-    fontSize: FontSizes.sm,
-    fontWeight: '500',
-    color: Colors.text,
     marginBottom: Spacing.xs,
   },
   input: {
-    height: 48,
-    borderWidth: 1,
+    height: 52,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.md,
-    fontSize: FontSizes.md,
+    fontSize: TypographyTokens.fontSize.md,
     color: Colors.text,
     backgroundColor: Colors.surface,
+    fontFamily: TypographyTokens.fontFamily.regular,
+  },
+  inputElevated: {
+    ...Shadows.sm,
+    borderColor: Colors.borderLight,
   },
   inputError: {
     borderColor: Colors.error,
+    borderWidth: 2,
   },
   errorText: {
-    fontSize: FontSizes.xs,
-    color: Colors.error,
     marginTop: Spacing.xs,
   },
 });
-
-
-
