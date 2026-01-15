@@ -1,6 +1,7 @@
 import { Tabs, Redirect } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/lib/utils/constants';
 
 export default function TabsLayout() {
@@ -41,9 +42,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="home" color={color} />
+          title: 'Home',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home" size={size || 24} color={color} />
           ),
         }}
       />
@@ -51,17 +52,8 @@ export default function TabsLayout() {
         name="emergency"
         options={{
           title: 'Emergency',
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="alert-circle" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'History',
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="clock" color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="alert-circle" size={size || 24} color={color} />
           ),
         }}
       />
@@ -69,8 +61,8 @@ export default function TabsLayout() {
         name="medications"
         options={{
           title: 'Medications',
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="medication" color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="medical" size={size || 24} color={color} />
           ),
         }}
       />
@@ -78,18 +70,21 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="user" color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person" size={size || 24} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          href: null, // Hide from tab bar - accessible from Dashboard
         }}
       />
       <Tabs.Screen
         name="hydration"
         options={{
-          title: 'Hydration',
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="water" color={color} />
-          ),
+          href: null, // Hide from tab bar - accessible from Dashboard
         }}
       />
       <Tabs.Screen
@@ -114,21 +109,6 @@ export default function TabsLayout() {
   );
 }
 
-// Simple icon component (you can replace with react-native-vector-icons later)
-function TabIcon({ name, color }: { name: string; color: string }) {
-  return (
-    <View
-      style={{
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: name === 'alert-circle' ? color : 'transparent',
-        borderWidth: name === 'alert-circle' ? 2 : 0,
-        borderColor: color,
-      }}
-    />
-  );
-}
 
 const styles = StyleSheet.create({
   loading: {

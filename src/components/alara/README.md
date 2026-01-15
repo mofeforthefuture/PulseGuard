@@ -1,183 +1,154 @@
-# FloatingALARA Component
+# ALARA Chat Feature
 
-A floating mascot component that provides a friendly, animated companion throughout the app. ALARA (Advanced Life-Aid Response Assistant) appears in the bottom corner of screens and provides contextual messages and feedback.
+A full-featured chat interface for conversing with ALARA, your health companion.
 
 ## Features
 
-- ✅ **Always Visible** (except on emergency screen)
-- ✅ **Idle Animations**: Blink and breathe animations for a living feel
-- ✅ **Chat Bubble**: Expands to show messages with smooth spring animations
-- ✅ **State-Based Colors**: Changes color and expression based on context
-- ✅ **Smooth Animations**: Spring-based animations for natural motion
-- ✅ **Calm & Friendly**: Designed to be reassuring, like Duolingo's bird but calmer
+- ✅ **Full Chat Interface** - Complete chat UI with message history
+- ✅ **Chat History** - Messages are saved to Supabase and persist across sessions
+- ✅ **Typing Indicator** - Shows when ALARA is "thinking" and generating a response
+- ✅ **Smart Responses** - ALARA responds contextually to health-related queries
+- ✅ **Smooth Animations** - Chat bubbles animate in with staggered delays
+- ✅ **Accessible** - Tap the FloatingALARA mascot to open chat
 
 ## Usage
 
-### Basic Setup
+### Opening Chat
 
-The component is already integrated into the root layout. You just need to use the `useALARA` hook in your screens:
+Users can open the chat by tapping the FloatingALARA mascot in the bottom corner of any screen (except emergency screens).
+
+### Chat Interface
+
+The chat screen provides:
+- **Header** - Shows ALARA's status (Online/Typing...)
+- **Message History** - Scrollable list of previous conversations
+- **Input Field** - Type messages to ALARA
+- **Send Button** - Send messages (disabled while ALARA is typing)
+
+### ALARA Responses
+
+ALARA uses intelligent, context-aware responses:
+
+- **Health Queries** - Responds to questions about medications, symptoms, etc.
+- **Greetings** - Friendly responses to hello/hi messages
+- **Help Requests** - Provides information about available features
+- **Emergency** - Directs users to call 911 for emergencies
+- **Default** - Helpful, empathetic responses for general queries
+
+## Database Schema
+
+Chat messages are stored in the `alara_chat_messages` table:
+
+```sql
+CREATE TABLE alara_chat_messages (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  message_text TEXT NOT NULL,
+  is_alara BOOLEAN NOT NULL,
+  emoji TEXT,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
+);
+```
+
+## Components
+
+### ALARAChatScreen
+
+Main chat interface component:
 
 ```tsx
-import { useALARA } from '@/src/context/ALARAContext';
+import { ALARAChatScreen } from '@/src/components/alara';
 
-export default function MyScreen() {
-  const { showMessage, setState } = useALARA();
+<ALARAChatScreen onClose={() => router.back()} />
+```
 
-  useEffect(() => {
-    setState('calm');
-    showMessage({
-      text: "Welcome! I'm here to help.",
-      duration: 5000, // Auto-dismiss after 5 seconds
-    });
-  }, []);
+**Props:**
+- `onClose?: () => void` - Callback when user closes chat
 
-  return (
-    // Your screen content
-  );
+### ChatMessage Interface
+
+```tsx
+interface ChatMessage {
+  id: string;
+  text: string;
+  isALARA: boolean;
+  timestamp: Date;
+  emoji?: string;
 }
 ```
 
-### States
+## Context Integration
 
-ALARA has several states that change its appearance:
-
-- `idle` - Default state, primary colors
-- `calm` - Green gradient, happy expression 😊
-- `reminder` - Amber gradient, reminder expression ⏰
-- `concern` - Coral gradient, concerned expression 🤔
-- `emergency` - Red gradient, alert expression 🚨
-- `thinking` - Subtle animation, thinking expression 💭
-
-### Showing Messages
+The chat functionality is integrated into `ALARAContext`:
 
 ```tsx
-const { showMessage, setState, hideMessage } = useALARA();
-
-// Show a message
-showMessage({
-  text: "Don't forget to take your medication!",
-  duration: 6000, // Auto-dismiss after 6 seconds (0 = no auto-dismiss)
-  priority: 'medium', // Optional: 'low' | 'medium' | 'high'
-});
-
-// Manually hide message
-hideMessage();
-
-// Change state
-setState('reminder');
+const {
+  chatHistory,
+  isTyping,
+  sendMessage,
+  loadChatHistory,
+  clearChatHistory,
+} = useALARA();
 ```
 
-### Common Patterns
+### Methods
 
-#### Welcome Message
-```tsx
-useEffect(() => {
-  setState('calm');
-  showMessage({
-    text: "Hi! I'm ALARA, your health companion.",
-    duration: 6000,
-  });
-}, []);
-```
+- **`sendMessage(text: string)`** - Send a message to ALARA
+- **`loadChatHistory()`** - Load previous chat messages from database
+- **`clearChatHistory()`** - Clear all chat history
 
-#### Reminder
+## Future Enhancements
+
+- **LLM Integration** - Replace rule-based responses with real AI (OpenAI, Anthropic, etc.)
+- **Voice Input** - Speak to ALARA instead of typing
+- **Message Search** - Search through chat history
+- **Export Chat** - Export chat history as PDF/text
+- **Rich Media** - Support for images, links, etc.
+- **Context Awareness** - ALARA remembers previous conversations and user health data
+
+## AI Integration
+
+Currently, ALARA uses rule-based responses. To integrate with an LLM:
+
+1. Replace `generateALARAResponse` in `ALARAContext.tsx`
+2. Add API key to environment variables
+3. Include user context (medications, health data) in prompts
+4. Handle rate limiting and error cases
+
+Example with OpenAI:
+
 ```tsx
-const handleReminder = () => {
-  setState('reminder');
-  showMessage({
-    text: "Time for your daily check-in!",
-    duration: 6000,
+const generateALARAResponse = async (userMessage: string): Promise<string> => {
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4',
+    messages: [
+      {
+        role: 'system',
+        content: 'You are ALARA, a friendly health companion...',
+      },
+      {
+        role: 'user',
+        content: userMessage,
+      },
+    ],
   });
+  
+  return response.choices[0].message.content;
 };
 ```
 
-#### Concern
-```tsx
-const handleConcern = () => {
-  setState('concern');
-  showMessage({
-    text: "I noticed you haven't checked in today. Everything okay?",
-    duration: 8000,
-  });
-};
-```
+## Navigation
 
-#### Processing/Thinking
-```tsx
-const handleProcessing = async () => {
-  setState('thinking');
-  // Do async work
-  await someOperation();
-  // Show result
-  setState('calm');
-  showMessage({
-    text: "All done!",
-    duration: 3000,
-  });
-};
-```
+The chat screen is accessible via:
+- **Route**: `/(tabs)/alara-chat`
+- **Access**: Tap FloatingALARA mascot
+- **Hidden from tab bar**: Not visible in bottom navigation
 
-## Animations
+## Design
 
-### Idle Animations
-
-- **Breathing**: Subtle scale animation (1.0 to 1.05) that loops continuously
-- **Blinking**: Random blinks every 2-5 seconds
-- **Floating**: Gentle vertical movement
-
-### Chat Bubble
-
-- **Expand**: Spring animation when message appears
-- **Collapse**: Spring animation when message is dismissed
-- **Mascot Growth**: Mascot slightly grows (1.25x) when bubble is open
-
-### State Transitions
-
-- **Color Changes**: Smooth spring animation between state colors
-- **Expression Changes**: Emoji changes based on state
-
-## Positioning
-
-The component is positioned in the bottom-right corner by default, with safe area insets respected. It automatically hides on the emergency screen.
-
-## Customization
-
-### Change Position
-
-Edit `app/_layout.tsx`:
-
-```tsx
-<FloatingALARA position="bottom-left" />
-```
-
-### Hide/Show Programmatically
-
-```tsx
-const { setIsVisible } = useALARA();
-
-// Hide ALARA
-setIsVisible(false);
-
-// Show ALARA
-setIsVisible(true);
-```
-
-## Design Tokens
-
-The component uses the design system tokens:
-- Colors from `Colors` and `Gradients`
-- Spacing from `Spacing`
-- Border radius from `BorderRadius`
-- Shadows from `Shadows`
-- Animation timings from `Animation`
-
-## Accessibility
-
-- Mascot is touchable and can dismiss messages
-- Chat bubble is dismissible by tapping
-- Proper accessibility labels on images
-- Respects safe area insets
-
-## Examples
-
-See `src/lib/alara/usage-example.tsx` for more detailed usage examples and helper functions.
+- **Gradient Background** - Matches app design system
+- **Chat Bubbles** - ALARA messages use primary gradient, user messages use surface gradient
+- **Animations** - Smooth entrance animations for messages
+- **Typing Indicator** - Animated dots while ALARA is thinking
+- **Empty State** - Friendly welcome message when no chat history

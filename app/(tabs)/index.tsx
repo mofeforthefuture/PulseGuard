@@ -30,7 +30,7 @@ export default function DashboardScreen() {
             title="Emergency"
             onPress={() => router.push('/(tabs)/emergency')}
             variant="emergency"
-            style={styles.emergencyButton}
+            style={styles.quickActionButton}
           />
           <Button
             title="Medications 💊"
@@ -47,7 +47,13 @@ export default function DashboardScreen() {
         </Card>
 
         <Card>
-          <Text style={styles.cardTitle}>Recent Activity</Text>
+          <Text style={styles.cardTitle}>History & Activity</Text>
+          <Button
+            title="View History 📊"
+            onPress={() => router.push('/(tabs)/history')}
+            variant="outline"
+            style={styles.quickActionButton}
+          />
           <Text style={styles.emptyText}>No recent activity</Text>
         </Card>
       </ScrollView>
