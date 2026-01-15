@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { usePathname } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useALARA, ALARAState } from '../../context/ALARAContext';
 import { Colors, Gradients, Spacing, BorderRadius, Shadows, Animation } from '../../lib/design/tokens';
@@ -32,6 +32,7 @@ export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps)
   const { state, message, hideMessage, isVisible } = useALARA();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const router = useRouter();
   const [imageError, setImageError] = useState(false);
 
   // Hide on emergency screen
@@ -291,9 +292,10 @@ export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps)
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => {
-          // Toggle bubble if no message, or hide if message is showing
+          // Open chat if no message, or hide message if showing
           if (!message) {
-            // Could trigger a default message here
+            // Navigate to chat screen
+            router.push('/(tabs)/alara-chat');
           } else {
             hideMessage();
           }

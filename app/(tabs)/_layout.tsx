@@ -104,6 +104,12 @@ export default function TabsLayout() {
           href: null, // Hide from tab bar
         }}
       />
+      <Tabs.Screen
+        name="alara-chat"
+        options={{
+          href: null, // Hide from tab bar - accessed via FloatingALARA
+        }}
+      />
     </Tabs>
   );
 }
