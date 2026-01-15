@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, StyleSheet, TextStyle, TextProps } from 'react-native';
-import { Typography as TypographyTokens, Colors } from '../../lib/design/tokens';
+import { Typography as TypographyTokens } from '../../lib/design/tokens';
+import { useColors } from '../../lib/design/useColors';
 
 interface TypographyProps extends TextProps {
   variant?:
@@ -30,6 +31,8 @@ export function Typography({
   children,
   ...props
 }: TypographyProps) {
+  const colors = useColors();
+  
   const getVariantStyles = (): TextStyle => {
     switch (variant) {
       case 'hero':
@@ -114,23 +117,23 @@ export function Typography({
   const getColor = (): string => {
     switch (color) {
       case 'primary':
-        return Colors.primary;
+        return colors.primary;
       case 'secondary':
-        return Colors.secondary;
+        return colors.secondary;
       case 'text':
-        return Colors.text;
+        return colors.text;
       case 'textSecondary':
-        return Colors.textSecondary;
+        return colors.textSecondary;
       case 'textLight':
-        return Colors.textLight;
+        return colors.textLight;
       case 'error':
-        return Colors.error;
+        return colors.error;
       case 'success':
-        return Colors.success;
+        return colors.success;
       case 'warning':
-        return Colors.warning;
+        return colors.warning;
       default:
-        return Colors.text;
+        return colors.text;
     }
   };
 

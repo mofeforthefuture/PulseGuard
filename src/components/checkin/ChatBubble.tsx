@@ -8,13 +8,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Colors,
   Gradients,
   Spacing,
   BorderRadius,
   Shadows,
   Animation,
 } from '../../lib/design/tokens';
+import { useColors } from '../../lib/design/useColors';
 import { Typography } from '../ui/Typography';
 
 interface ChatBubbleProps {
@@ -25,6 +25,7 @@ interface ChatBubbleProps {
 }
 
 export function ChatBubble({ message, isALARA = false, emoji, delay = 0 }: ChatBubbleProps) {
+  const colors = useColors();
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -59,9 +60,14 @@ export function ChatBubble({ message, isALARA = false, emoji, delay = 0 }: ChatB
 
   const getGradient = (): [string, string] => {
     if (isALARA) {
+      // ALARA messages use primary gradient (same in both themes)
       return [Gradients.primary.start, Gradients.primary.end];
     }
-    return [Gradients.surface.start, Gradients.surface.end];
+    // User messages use theme-aware surface colors
+    // In dark mode, use a slightly lighter surface for contrast
+    const userBubbleStart = colors.surface;
+    const userBubbleEnd = colors.surfaceElevated || colors.surface;
+    return [userBubbleStart, userBubbleEnd];
   };
 
   return (
@@ -79,32 +85,48 @@ export function ChatBubble({ message, isALARA = false, emoji, delay = 0 }: ChatB
       ]}
     >
       {isALARA && emoji && (
-        <View style={styles.emojiContainer}>
+        <View style={[styles.emojiContainer, { backgroundColor: colors.surface }]}>
           <Text style={styles.emoji}>{emoji}</Text>
         </View>
       )}
       
-      <LinearGradient
-        colors={getGradient()}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[
-          styles.bubble,
-          isALARA ? styles.alaraBubble : styles.userBubble,
-        ]}
-      >
-        <Typography
-          variant="body"
-          color="text"
-          weight={isALARA ? 'medium' : 'regular'}
-          style={styles.message}
+      {isALARA ? (
+        <LinearGradient
+          colors={getGradient()}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.bubble, styles.alaraBubble]}
         >
-          {message}
-        </Typography>
-      </LinearGradient>
+          <Typography
+            variant="body"
+            color="text"
+            weight="medium"
+            style={styles.message}
+          >
+            {message}
+          </Typography>
+        </LinearGradient>
+      ) : (
+        <View
+          style={[
+            styles.bubble,
+            styles.userBubble,
+            { backgroundColor: colors.surfaceElevated || colors.surface },
+          ]}
+        >
+          <Typography
+            variant="body"
+            color="text"
+            weight="regular"
+            style={styles.message}
+          >
+            {message}
+          </Typography>
+        </View>
+      )}
 
       {!isALARA && emoji && (
-        <View style={styles.emojiContainer}>
+        <View style={[styles.emojiContainer, { backgroundColor: colors.surface }]}>
           <Text style={styles.emoji}>{emoji}</Text>
         </View>
       )}
@@ -131,7 +153,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: Spacing.xs,

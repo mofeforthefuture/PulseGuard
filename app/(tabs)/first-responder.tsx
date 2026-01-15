@@ -5,10 +5,12 @@ import { FirstResponderModeScreen } from '../../src/components/firstresponder';
 import { useAuth } from '../../src/context/AuthContext';
 import { supabase } from '../../src/lib/supabase/client';
 import { MedicalProfile } from '../../src/types/health';
-import { Colors, Spacing } from '../../src/lib/design/tokens';
+import { Spacing } from '../../src/lib/design/tokens';
+import { useColors } from '../../src/lib/design/useColors';
 
 export default function FirstResponderModePage() {
   const { user } = useAuth();
+  const colors = useColors();
   const [medicalProfiles, setMedicalProfiles] = useState<MedicalProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -58,7 +60,7 @@ export default function FirstResponderModePage() {
     return (
       <SafeAreaView>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );

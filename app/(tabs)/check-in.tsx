@@ -6,11 +6,13 @@ import { ALARACheckInScreen } from '../../src/components/checkin';
 import type { CheckInData } from '../../src/components/checkin/ALARACheckInScreen';
 import { useAuth } from '../../src/context/AuthContext';
 import { supabase } from '../../src/lib/supabase/client';
-import { Colors, Spacing } from '../../src/lib/design/tokens';
+import { Spacing } from '../../src/lib/design/tokens';
+import { useColors } from '../../src/lib/design/useColors';
 
 export default function CheckInScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const colors = useColors();
   const [saving, setSaving] = useState(false);
 
   const handleComplete = async (data: CheckInData) => {
@@ -81,7 +83,7 @@ export default function CheckInScreen() {
     return (
       <SafeAreaView>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );

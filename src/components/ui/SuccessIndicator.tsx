@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { View, StyleSheet, Animated, Text } from 'react-native';
-import { Colors, Spacing, BorderRadius } from '../../lib/design/tokens';
+import { Spacing, BorderRadius } from '../../lib/design/tokens';
+import { useColors } from '../../lib/design/useColors';
 import { createSuccessAnimation, createSuccessBounce } from '../../lib/animations/utils';
 
 interface SuccessIndicatorProps {
@@ -16,6 +17,7 @@ export function SuccessIndicator({
   size = 48,
   onComplete,
 }: SuccessIndicatorProps) {
+  const colors = useColors();
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const checkmarkScale = useRef(new Animated.Value(0)).current;
@@ -64,6 +66,8 @@ export function SuccessIndicator({
             width: size,
             height: size,
             borderRadius: size / 2,
+            backgroundColor: colors.success,
+            borderColor: colors.success + '40',
           },
         ]}
       >
@@ -73,6 +77,7 @@ export function SuccessIndicator({
             {
               fontSize: size * 0.6,
               transform: [{ scale: checkmarkScale }],
+              color: colors.text,
             },
           ]}
         >
@@ -85,6 +90,7 @@ export function SuccessIndicator({
             styles.message,
             {
               opacity: opacityAnim,
+              color: colors.text,
             },
           ]}
         >
@@ -102,21 +108,17 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   circle: {
-    backgroundColor: Colors.success,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: Colors.success + '40',
   },
   checkmark: {
-    color: Colors.text,
     fontWeight: 'bold',
   },
   message: {
     marginTop: Spacing.sm,
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.text,
     textAlign: 'center',
   },
 });

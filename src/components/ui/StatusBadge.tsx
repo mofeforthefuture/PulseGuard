@@ -3,12 +3,12 @@ import { View, StyleSheet, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Typography } from './Typography';
 import {
-  Colors,
   Spacing,
   BorderRadius,
   Gradients,
   Shadows,
 } from '../../lib/design/tokens';
+import { useColors } from '../../lib/design/useColors';
 
 interface StatusBadgeProps {
   label: string;
@@ -25,6 +25,8 @@ export function StatusBadge({
   size = 'md',
   style,
 }: StatusBadgeProps) {
+  const colors = useColors();
+  
   const getGradient = () => {
     switch (status) {
       case 'calm':
@@ -41,26 +43,26 @@ export function StatusBadge({
   const getBackgroundColor = () => {
     switch (status) {
       case 'calm':
-        return Colors.calm;
+        return colors.calm;
       case 'reminder':
-        return Colors.reminder;
+        return colors.reminder;
       case 'concern':
-        return Colors.concern;
+        return colors.concern;
       case 'emergency':
-        return Colors.emergency;
+        return colors.emergency;
     }
   };
 
   const getBorderColor = () => {
     switch (status) {
       case 'calm':
-        return Colors.calmDark;
+        return colors.calmDark;
       case 'reminder':
-        return Colors.reminderDark;
+        return colors.reminderDark;
       case 'concern':
-        return Colors.concernDark;
+        return colors.concernDark;
       case 'emergency':
-        return Colors.emergencyDark;
+        return colors.emergencyDark;
     }
   };
 

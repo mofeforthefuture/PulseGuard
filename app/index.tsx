@@ -1,27 +1,26 @@
 import { Redirect } from 'expo-router';
 import { useAuth } from '../src/context/AuthContext';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import { Colors } from '../src/lib/utils/constants';
+import { useColors } from '../src/lib/design/useColors';
 
 export default function Index() {
   const { user, loading } = useAuth();
+  const colors = useColors();
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={[styles.loading, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  // If authenticated, check if email is confirmed
+  // If authenticated, go straight to tabs
   if (user) {
-    // Check if user needs to complete onboarding
-    // For now, go to tabs (onboarding check happens in onboarding screen)
     return <Redirect href="/(tabs)" />;
   }
 
-  // If not authenticated, start with signup
+  // If not authenticated, go to signup
   return <Redirect href="/(auth)/signup" />;
 }
 
@@ -30,6 +29,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
   },
 });

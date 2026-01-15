@@ -85,6 +85,8 @@ export const Gradients = {
 // SOLID COLOR TOKENS (for fallbacks and specific use cases)
 // ============================================================================
 
+// Legacy Colors export (light mode only, for backward compatibility)
+// New code should use useColors() hook for theme-aware colors
 export const Colors = {
   // Primary colors
   primary: '#7B85FF',

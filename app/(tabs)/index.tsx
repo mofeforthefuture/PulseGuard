@@ -1,22 +1,31 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from '../../src/components/ui/SafeAreaView';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
+import { Typography } from '../../src/components/ui/Typography';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, FontSizes } from '../../src/lib/utils/constants';
+import { Spacing } from '../../src/lib/design/tokens';
+import { useColors } from '../../src/lib/design/useColors';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const colors = useColors();
 
   return (
     <SafeAreaView>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Dashboard</Text>
+        <Typography variant="h1" color="text" weight="bold" style={styles.title}>
+          Dashboard
+        </Typography>
 
-        <Card style={styles.checkInCard}>
-          <Text style={styles.cardTitle}>Daily Check-In</Text>
-          <Text style={styles.cardSubtitle}>How are you feeling today?</Text>
+        <Card variant="calm">
+          <Typography variant="h3" color="text" weight="semibold" style={styles.cardTitle}>
+            Daily Check-In
+          </Typography>
+          <Typography variant="body" color="textSecondary" style={styles.cardSubtitle}>
+            How are you feeling today?
+          </Typography>
           <Button
             title="Check In with ALARA 💬"
             onPress={() => router.push('/(tabs)/check-in')}
@@ -25,7 +34,9 @@ export default function DashboardScreen() {
         </Card>
 
         <Card>
-          <Text style={styles.cardTitle}>Quick Actions</Text>
+          <Typography variant="h3" color="text" weight="semibold" style={styles.cardTitle}>
+            Quick Actions
+          </Typography>
           <Button
             title="Emergency"
             onPress={() => router.push('/(tabs)/emergency')}
@@ -47,14 +58,18 @@ export default function DashboardScreen() {
         </Card>
 
         <Card>
-          <Text style={styles.cardTitle}>History & Activity</Text>
+          <Typography variant="h3" color="text" weight="semibold" style={styles.cardTitle}>
+            History & Activity
+          </Typography>
           <Button
             title="View History 📊"
             onPress={() => router.push('/(tabs)/history')}
             variant="outline"
             style={styles.quickActionButton}
           />
-          <Text style={styles.emptyText}>No recent activity</Text>
+          <Typography variant="bodySmall" color="textLight" style={styles.emptyText}>
+            No recent activity
+          </Typography>
         </Card>
       </ScrollView>
     </SafeAreaView>
@@ -69,37 +84,22 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   title: {
-    fontSize: FontSizes.xxxl,
-    fontWeight: '700',
-    color: Colors.text,
     marginBottom: Spacing.lg,
   },
-  checkInCard: {
-    backgroundColor: Colors.calm,
-  },
   cardTitle: {
-    fontSize: FontSizes.lg,
-    fontWeight: '600',
-    color: Colors.text,
     marginBottom: Spacing.xs,
   },
   cardSubtitle: {
-    fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
     marginBottom: Spacing.md,
   },
   cardButton: {
-    marginTop: Spacing.sm,
-  },
-  emergencyButton: {
     marginTop: Spacing.sm,
   },
   quickActionButton: {
     marginTop: Spacing.sm,
   },
   emptyText: {
-    fontSize: FontSizes.sm,
-    color: Colors.textLight,
+    marginTop: Spacing.sm,
     fontStyle: 'italic',
   },
 });

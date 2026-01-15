@@ -2,12 +2,12 @@ import React from 'react';
 import { TextInput, StyleSheet, View, ViewStyle, TextInputProps } from 'react-native';
 import { Typography } from './Typography';
 import {
-  Colors,
   Spacing,
   BorderRadius,
   Typography as TypographyTokens,
   Shadows,
 } from '../../lib/design/tokens';
+import { useColors } from '../../lib/design/useColors';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -24,6 +24,8 @@ export function Input({
   variant = 'default',
   ...props
 }: InputProps) {
+  const colors = useColors();
+  
   return (
     <View style={[styles.container, containerStyle]}>
       {label && (
@@ -34,11 +36,16 @@ export function Input({
       <TextInput
         style={[
           styles.input,
-          variant === 'elevated' && styles.inputElevated,
-          error && styles.inputError,
+          {
+            borderColor: error ? colors.error : colors.border,
+            color: colors.text,
+            backgroundColor: colors.surface,
+          },
+          variant === 'elevated' && { borderColor: colors.borderLight },
+          error && { borderColor: colors.error, borderWidth: 2 },
           style,
         ]}
-        placeholderTextColor={Colors.textLight}
+        placeholderTextColor={colors.textLight}
         {...props}
       />
       {error && (
@@ -60,21 +67,13 @@ const styles = StyleSheet.create({
   input: {
     height: 52,
     borderWidth: 1.5,
-    borderColor: Colors.border,
     borderRadius: BorderRadius.lg,
     paddingHorizontal: Spacing.md,
     fontSize: TypographyTokens.fontSize.md,
-    color: Colors.text,
-    backgroundColor: Colors.surface,
     fontFamily: TypographyTokens.fontFamily.regular,
   },
   inputElevated: {
     ...Shadows.sm,
-    borderColor: Colors.borderLight,
-  },
-  inputError: {
-    borderColor: Colors.error,
-    borderWidth: 2,
   },
   errorText: {
     marginTop: Spacing.xs,

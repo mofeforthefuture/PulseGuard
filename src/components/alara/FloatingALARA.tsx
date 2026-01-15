@@ -13,7 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useALARA, ALARAState } from '../../context/ALARAContext';
-import { Colors, Gradients, Spacing, BorderRadius, Shadows, Animation } from '../../lib/design/tokens';
+import { Gradients, Spacing, BorderRadius, Shadows, Animation } from '../../lib/design/tokens';
+import { useColors } from '../../lib/design/useColors';
 import { Typography } from '../ui/Typography';
 
 const ALARA_ASSETS = {
@@ -30,6 +31,7 @@ interface FloatingALARAProps {
 
 export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps) {
   const { state, message, hideMessage, isVisible } = useALARA();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const router = useRouter();
@@ -185,11 +187,11 @@ export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps)
 
   const getStateColor = () => {
     const value = colorAnim._value;
-    if (value < 0.2) return Colors.primary;
-    if (value < 0.4) return Colors.calm;
-    if (value < 0.6) return Colors.reminder;
-    if (value < 0.8) return Colors.concern;
-    return Colors.emergency;
+    if (value < 0.2) return colors.primary;
+    if (value < 0.4) return colors.calm;
+    if (value < 0.6) return colors.reminder;
+    if (value < 0.8) return colors.concern;
+    return colors.emergency;
   };
 
   const getStateGradient = (): [string, string] => {
@@ -330,8 +332,8 @@ export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps)
 
           {/* Mascot image or fallback */}
           {imageError ? (
-            <View style={[styles.fallbackContainer, { width: MASCOT_SIZE, height: MASCOT_SIZE }]}>
-              <Text style={[styles.fallbackEmoji, { fontSize: MASCOT_SIZE * 0.4 }]}>
+            <View style={[styles.fallbackContainer, { width: MASCOT_SIZE, height: MASCOT_SIZE, backgroundColor: colors.surface }]}>
+              <Text style={[styles.fallbackEmoji, { fontSize: MASCOT_SIZE * 0.5, color: colors.primary }]}>
                 {getStateExpression()}
               </Text>
             </View>
@@ -392,7 +394,6 @@ const styles = StyleSheet.create({
   fallbackContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surface,
     borderRadius: MASCOT_SIZE / 2,
     ...Platform.select({
       ios: {
@@ -431,7 +432,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   bubbleText: {
-    color: Colors.text,
+    // Color set via Typography component
   },
   bubbleTail: {
     position: 'absolute',

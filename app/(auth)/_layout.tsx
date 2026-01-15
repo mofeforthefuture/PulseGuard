@@ -1,25 +1,24 @@
-import { Stack, usePathname } from 'expo-router';
+import { Stack, Redirect, usePathname } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
-import { Redirect } from 'expo-router';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import { Colors } from '../../src/lib/utils/constants';
+import { useColors } from '../../src/lib/design/useColors';
 
 export default function AuthLayout() {
   const { user, loading } = useAuth();
   const pathname = usePathname();
+  const colors = useColors();
 
   if (loading) {
     return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={[styles.loading, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  // Allow onboarding to be accessible even when authenticated
-  // Only redirect to tabs if user is authenticated and not on onboarding or signup
-  // (signup screen needs to be able to navigate to onboarding)
-  if (user && pathname && !pathname.includes('onboarding') && !pathname.includes('signup')) {
+  // If user is authenticated, redirect to tabs immediately
+  // (except during onboarding flow which is handled in onboarding screen)
+  if (user && pathname && !pathname.includes('onboarding')) {
     return <Redirect href="/(tabs)" />;
   }
 
@@ -41,7 +40,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
   },
 });
 

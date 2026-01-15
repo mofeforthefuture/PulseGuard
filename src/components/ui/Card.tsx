@@ -2,13 +2,13 @@ import React, { useRef } from 'react';
 import { View, StyleSheet, ViewStyle, TouchableOpacity, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Colors,
   Spacing,
   BorderRadius,
   Shadows,
   Gradients,
   Animation,
 } from '../../lib/design/tokens';
+import { useColors } from '../../lib/design/useColors';
 
 interface CardProps {
   children: React.ReactNode;
@@ -27,6 +27,7 @@ export function Card({
   onPress,
   padding = 'md',
 }: CardProps) {
+  const colors = useColors();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -74,17 +75,17 @@ export function Card({
   const getBackgroundColor = () => {
     switch (variant) {
       case 'calm':
-        return Colors.calm;
+        return colors.calm;
       case 'reminder':
-        return Colors.reminder;
+        return colors.reminder;
       case 'concern':
-        return Colors.concern;
+        return colors.concern;
       case 'emergency':
-        return Colors.emergency;
+        return colors.emergency;
       case 'elevated':
-        return Colors.surfaceElevated;
+        return colors.surfaceElevated;
       default:
-        return Colors.surface;
+        return colors.surface;
     }
   };
 
@@ -120,7 +121,7 @@ export function Card({
     >
       {variant === 'gradient' || ['calm', 'reminder', 'concern', 'emergency'].includes(variant) ? (
         <LinearGradient
-          colors={getGradient() || [Colors.surface, Colors.surface]}
+          colors={getGradient() || [colors.surface, colors.surface]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}

@@ -56,7 +56,7 @@ export function ALARAMascot({
       >
         {imageError ? (
           <View style={[styles.fallbackContainer, { width: size, height: size }]}>
-            <Text style={[styles.fallbackEmoji, { fontSize: size * 0.4 }]}>🤖</Text>
+            <Text style={[styles.fallbackEmoji, { fontSize: size * 0.5 }]}>💜</Text>
             <Text style={styles.fallbackText}>ALARA</Text>
           </View>
         ) : (

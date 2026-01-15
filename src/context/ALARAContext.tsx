@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase/client';
+import { generateALARAResponse as generateOpenRouterResponse, type ALARAPersonality } from '../lib/openrouter/client';
+import { loadUserContext, buildContextString } from '../lib/openrouter/userContext';
+import Constants from 'expo-constants';
 
 export type ALARAState = 'idle' | 'calm' | 'reminder' | 'concern' | 'emergency' | 'thinking';
 
@@ -23,6 +26,8 @@ interface ALARAContextType {
   message: ALARAMessage | null;
   chatHistory: ChatMessage[];
   isTyping: boolean;
+  personality: ALARAPersonality;
+  hasPersonalitySet: boolean;
   setState: (state: ALARAState) => void;
   showMessage: (message: ALARAMessage) => void;
   hideMessage: () => void;
@@ -31,6 +36,7 @@ interface ALARAContextType {
   sendMessage: (text: string) => Promise<void>;
   loadChatHistory: () => Promise<void>;
   clearChatHistory: () => Promise<void>;
+  setPersonality: (personality: ALARAPersonality) => Promise<void>;
 }
 
 const ALARAContext = createContext<ALARAContextType | undefined>(undefined);
@@ -42,13 +48,94 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
   const [isVisible, setIsVisible] = useState(true);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [personality, setPersonality] = useState<ALARAPersonality>('friendly');
+  const [hasPersonalitySet, setHasPersonalitySet] = useState(false);
+  const [userContextString, setUserContextString] = useState<string>('');
 
-  // Load chat history on mount
-  useEffect(() => {
-    if (user?.id) {
-      loadChatHistory();
+  // Load user's ALARA personality preference
+  const loadPersonality = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('alara_personality')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error loading personality:', error);
+        setPersonality('friendly');
+        return;
+      }
+
+      if (data?.alara_personality) {
+        setPersonality(data.alara_personality as ALARAPersonality);
+      } else {
+        // No personality set - use friendly as default but mark as not set
+        setPersonality('friendly');
+      }
+    } catch (error) {
+      console.error('Error loading personality:', error);
+      setPersonality('friendly');
     }
   }, [user?.id]);
+
+  // Check if personality has been explicitly set
+  // If there's chat history, they've implicitly chosen
+  useEffect(() => {
+    if (chatHistory.length > 0) {
+      // If they have chat history, they've already chosen (even if default)
+      setHasPersonalitySet(true);
+    } else {
+      // No chat history - check if they've explicitly set it in database
+      // For now, if no chat history, show modal to let them choose
+      setHasPersonalitySet(false);
+    }
+  }, [chatHistory.length]);
+
+  // Load user context for ALARA
+  const loadUserContextForALARA = useCallback(async () => {
+    if (!user?.id) {
+      setUserContextString('');
+      return;
+    }
+
+    try {
+      const context = await loadUserContext(user.id);
+      if (context) {
+        const contextString = buildContextString(context);
+        setUserContextString(contextString);
+      } else {
+        setUserContextString('');
+      }
+    } catch (error) {
+      console.error('Error loading user context:', error);
+      setUserContextString('');
+    }
+  }, [user?.id]);
+
+  // Load chat history and personality on mount
+  useEffect(() => {
+    if (user?.id) {
+      loadPersonality();
+      loadChatHistory();
+      loadUserContextForALARA();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Refresh user context periodically (every 5 minutes) or when chat history changes significantly
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Refresh context when new messages are added (user might have updated their profile)
+    const interval = setInterval(() => {
+      loadUserContextForALARA();
+    }, 5 * 60 * 1000); // Every 5 minutes
+
+    return () => clearInterval(interval);
+  }, [user?.id, loadUserContextForALARA]);
 
   const showMessage = useCallback((newMessage: ALARAMessage) => {
     setMessage(newMessage);
@@ -122,90 +209,123 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
   }, [user?.id]);
 
   const generateALARAResponse = useCallback(async (userMessage: string): Promise<string> => {
-    // Simple rule-based responses (can be replaced with LLM later)
-    const lowerMessage = userMessage.toLowerCase();
-
-    // Health-related queries
-    if (lowerMessage.includes('how are you') || lowerMessage.includes('how do you feel')) {
-      return "I'm doing great! I'm here to help you with your health. How are you feeling today? 😊";
-    }
-
-    if (lowerMessage.includes('medication') || lowerMessage.includes('med')) {
-      return "I can help you track your medications! Have you taken all your doses today? 💊";
-    }
-
-    if (lowerMessage.includes('symptom') || lowerMessage.includes('pain') || lowerMessage.includes('hurt')) {
-      setState('concern');
-      return "I'm sorry to hear that. Would you like to log this in your check-in? Your health is important. 🤔";
-    }
-
-    if (lowerMessage.includes('thank') || lowerMessage.includes('thanks')) {
+    console.log('[ALARA] Generating response for:', userMessage);
+    
+    // Get OpenRouter API key from environment
+    const apiKey = Constants.expoConfig?.extra?.openrouterApiKey || process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
+    
+    if (!apiKey) {
+      console.warn('[ALARA] OpenRouter API key not found, using fallback response');
+      // Fallback to simple response if API key is missing
       setState('calm');
-      return "You're welcome! I'm always here to help. Is there anything else you'd like to know? 😊";
+      return "Hey! I'm having trouble connecting right now. Can you check the API key? 😊";
     }
 
-    if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-      setState('calm');
-      return "Hello! 👋 I'm ALARA, your health companion. How can I help you today?";
-    }
+    console.log('[ALARA] API key found, personality:', personality, 'context length:', userContextString.length);
 
-    if (lowerMessage.includes('help')) {
-      return "I can help you with:\n• Medication reminders\n• Health check-ins\n• Tracking your symptoms\n• Answering health questions\n\nWhat would you like help with? 💬";
-    }
-
-    if (lowerMessage.includes('emergency') || lowerMessage.includes('urgent')) {
-      setState('emergency');
-      return "If this is a medical emergency, please call 911 immediately. I can help you contact your emergency contacts if needed. 🚨";
-    }
-
-    // Default responses
-    const defaultResponses = [
-      "That's interesting! Tell me more about that. 💭",
-      "I'm here to help. Can you tell me a bit more? 🤔",
-      "I understand. How can I assist you with that? 😊",
-      "Let me help you with that. What would you like to know? 💬",
-    ];
+    // Convert chat history to OpenRouter format
+    const historyForAPI = chatHistory
+      .filter((msg) => msg.text.trim().length > 0)
+      .map((msg) => ({
+        role: msg.isALARA ? ('assistant' as const) : ('user' as const),
+        content: msg.text,
+      }));
 
     setState('thinking');
-    // Simulate thinking delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-    setState('calm');
 
-    return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
-  }, [setState]);
+    try {
+      // Use OpenRouter to generate response with user context
+      const response = await generateOpenRouterResponse(
+        userMessage,
+        personality,
+        historyForAPI,
+        apiKey,
+        undefined, // model (use default)
+        userContextString // user context
+      );
+
+      // Determine state based on response content (simple heuristic)
+      const lowerResponse = response.toLowerCase();
+      if (lowerResponse.includes('emergency') || lowerResponse.includes('911') || lowerResponse.includes('urgent')) {
+        setState('emergency');
+      } else if (lowerResponse.includes('concern') || lowerResponse.includes('worry') || lowerResponse.includes('symptom')) {
+        setState('concern');
+      } else {
+        setState('calm');
+      }
+
+      console.log('[ALARA] Response received:', response.substring(0, 50) + '...');
+      return response;
+    } catch (error) {
+      console.error('[ALARA] Error generating response:', error);
+      setState('calm');
+      
+      // Fallback response based on personality
+      const fallbackResponses: Record<ALARAPersonality, string> = {
+        friendly: "Oops, having some connection issues! Try again in a sec? 😊",
+        sassy: "Ugh, my connection is being annoying. Give it a moment? 😏",
+        rude: "Connection's being dumb. Try again when it's working. 🙄",
+        fun_nurse: "Oops! Technical hiccup! Give me a sec and try again! 🏥✨",
+        professional: "Having a connection issue. Try again in a moment.",
+        caring: "Having a bit of trouble connecting, but I'm still here! Try again? 💙",
+      };
+
+      return fallbackResponses[personality] || fallbackResponses.friendly;
+    }
+  }, [personality, chatHistory, setState, userContextString]);
 
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      console.log('[ALARA] sendMessage called with empty text');
+      return;
+    }
 
-    // Add user message to history immediately
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      text: text.trim(),
-      isALARA: false,
-      timestamp: new Date(),
-    };
+    console.log('[ALARA] sendMessage called with:', text);
+    
+    try {
+      // Add user message to history immediately
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        text: text.trim(),
+        isALARA: false,
+        timestamp: new Date(),
+      };
 
-    setChatHistory((prev) => [...prev, userMessage]);
-    await saveMessage(userMessage);
+      setChatHistory((prev) => [...prev, userMessage]);
+      await saveMessage(userMessage);
 
-    // Show typing indicator
-    setIsTyping(true);
-    setState('thinking');
+      // Show typing indicator
+      setIsTyping(true);
+      setState('thinking');
 
-    // Generate ALARA response
-    const responseText = await generateALARAResponse(text);
+      // Generate ALARA response
+      const responseText = await generateALARAResponse(text);
 
-    // Add ALARA response to history
-    const alaraMessage: ChatMessage = {
-      id: `alara-${Date.now()}`,
-      text: responseText,
-      isALARA: true,
-      timestamp: new Date(),
-    };
+      // Add ALARA response to history
+      const alaraMessage: ChatMessage = {
+        id: `alara-${Date.now()}`,
+        text: responseText,
+        isALARA: true,
+        timestamp: new Date(),
+      };
 
-    setIsTyping(false);
-    setChatHistory((prev) => [...prev, alaraMessage]);
-    await saveMessage(alaraMessage);
+      setIsTyping(false);
+      setChatHistory((prev) => [...prev, alaraMessage]);
+      await saveMessage(alaraMessage);
+    } catch (error) {
+      console.error('Error in sendMessage:', error);
+      setIsTyping(false);
+      setState('calm');
+      
+      // Show error message to user
+      const errorMessage: ChatMessage = {
+        id: `error-${Date.now()}`,
+        text: "Sorry, I'm having trouble responding right now. Please try again! 😊",
+        isALARA: true,
+        timestamp: new Date(),
+      };
+      setChatHistory((prev) => [...prev, errorMessage]);
+    }
   }, [generateALARAResponse, saveMessage, setState]);
 
   const clearChatHistory = useCallback(async () => {
@@ -228,6 +348,30 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id]);
 
+  const updatePersonality = useCallback(async (newPersonality: ALARAPersonality) => {
+    if (!user?.id) return;
+
+    setPersonality(newPersonality);
+    setHasPersonalitySet(true);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ alara_personality: newPersonality })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Error updating personality:', error);
+        // Revert on error
+        loadPersonality();
+      }
+    } catch (error) {
+      console.error('Error updating personality:', error);
+      // Revert on error
+      loadPersonality();
+    }
+  }, [user?.id, loadPersonality]);
+
   return (
     <ALARAContext.Provider
       value={{
@@ -235,6 +379,8 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
         message,
         chatHistory,
         isTyping,
+        personality,
+        hasPersonalitySet,
         setState,
         showMessage,
         hideMessage,
@@ -243,6 +389,7 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
         sendMessage,
         loadChatHistory,
         clearChatHistory,
+        setPersonality: updatePersonality,
       }}
     >
       {children}

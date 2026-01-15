@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Colors,
   Spacing,
   BorderRadius,
   TouchTarget,
@@ -20,6 +19,7 @@ import {
   Shadows,
   Animation,
 } from '../../lib/design/tokens';
+import { useColors } from '../../lib/design/useColors';
 
 interface ButtonProps {
   title: string;
@@ -44,6 +44,7 @@ export function Button({
   size = 'md',
   fullWidth = false,
 }: ButtonProps) {
+  const colors = useColors();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
 
@@ -104,10 +105,10 @@ export function Button({
 
   const getTextColor = () => {
     if (variant === 'outline') {
-      return Colors.primary;
+      return colors.primary;
     }
     if (variant === 'calm' || variant === 'reminder' || variant === 'concern') {
-      return Colors.text;
+      return colors.text;
     }
     return '#FFFFFF';
   };
@@ -160,7 +161,7 @@ export function Button({
       style={[
         styles.button,
         getSizeStyles(),
-        variant === 'outline' && styles.outline,
+        variant === 'outline' && { ...styles.outline, borderColor: colors.primary },
         disabled && styles.disabled,
         fullWidth && styles.fullWidth,
         getShadow(),
@@ -182,7 +183,7 @@ export function Button({
       <View style={styles.content}>
         {loading ? (
           <ActivityIndicator
-            color={variant === 'outline' ? Colors.primary : getTextColor()}
+            color={variant === 'outline' ? colors.primary : getTextColor()}
             size="small"
           />
         ) : (
@@ -193,7 +194,7 @@ export function Button({
                 fontSize: getFontSize(),
                 color: disabled
                   ? variant === 'outline'
-                    ? Colors.textDisabled
+                    ? colors.textDisabled
                     : getTextColor()
                   : getTextColor(),
               },
@@ -232,8 +233,6 @@ const styles = StyleSheet.create({
   },
   outline: {
     backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: Colors.primary,
   },
   disabled: {
     opacity: 0.5,

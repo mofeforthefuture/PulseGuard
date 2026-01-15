@@ -33,41 +33,43 @@ export function FirstResponderModeScreen({
   emergencyContactName,
   emergencyContactPhone,
 }: FirstResponderModeScreenProps) {
+  const colors = useColors();
+  
   // Get condition color and icon
   const getConditionConfig = (conditionType: string, severity?: string) => {
     const configs: Record<string, { color: string; icon: string; label: string }> = {
       asthma: {
-        color: Colors.warning,
+        color: colors.warning,
         icon: '🫁',
         label: 'ASTHMA',
       },
       sickle_cell_disease: {
-        color: Colors.error,
+        color: colors.error,
         icon: '🩸',
         label: 'SICKLE CELL',
       },
       epilepsy: {
-        color: Colors.error,
+        color: colors.error,
         icon: '⚡',
         label: 'EPILEPSY',
       },
       diabetes: {
-        color: Colors.warning,
+        color: colors.warning,
         icon: '💉',
         label: 'DIABETES',
       },
       heart_condition: {
-        color: Colors.error,
+        color: colors.error,
         icon: '❤️',
         label: 'HEART CONDITION',
       },
       allergies: {
-        color: Colors.error,
+        color: colors.error,
         icon: '⚠️',
         label: 'ALLERGIES',
       },
       other: {
-        color: Colors.info,
+        color: colors.info,
         icon: '🏥',
         label: 'MEDICAL CONDITION',
       },
@@ -77,10 +79,10 @@ export function FirstResponderModeScreen({
     
     // Adjust color based on severity
     if (severity === 'severe') {
-      return { ...config, color: Colors.error };
+      return { ...config, color: colors.error };
     }
     if (severity === 'moderate') {
-      return { ...config, color: Colors.warning };
+      return { ...config, color: colors.warning };
     }
     
     return config;
@@ -105,7 +107,7 @@ export function FirstResponderModeScreen({
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[Colors.surface, Colors.background]}
+        colors={[colors.surface, colors.background]}
         style={StyleSheet.absoluteFill}
       />
       
@@ -249,7 +251,7 @@ export function FirstResponderModeScreen({
               <View style={styles.triggersList}>
                 {allTriggers.map((trigger, index) => (
                   <View key={index} style={styles.triggerItem}>
-                    <Text style={styles.triggerBullet}>•</Text>
+                    <Text style={[styles.triggerBullet, { color: colors.error }]}>•</Text>
                     <Typography variant="h3" color="text" weight="semibold" style={styles.triggerText}>
                       {trigger.toUpperCase()}
                     </Typography>
@@ -309,7 +311,7 @@ export function FirstResponderModeScreen({
         )}
 
         {/* Footer Note */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { borderTopColor: colors.border }]}>
           <Typography variant="body" color="textSecondary" style={styles.footerText}>
             This information is for first responders only
           </Typography>
@@ -471,7 +473,6 @@ const styles = StyleSheet.create({
   triggerBullet: {
     fontSize: 20,
     marginRight: Spacing.sm,
-    color: Colors.error,
   },
   triggerText: {
     flex: 1,
@@ -531,7 +532,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: Spacing.xl,
     borderTopWidth: 2,
-    borderTopColor: Colors.border,
+    // borderTopColor will be set dynamically
   },
   footerText: {
     textAlign: 'center',

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator, Animated } from 'react-native';
-import { Colors, Spacing, Animation as AnimationTokens } from '../../lib/design/tokens';
+import { Spacing, Animation as AnimationTokens } from '../../lib/design/tokens';
+import { useColors } from '../../lib/design/useColors';
 import { Typography } from './Typography';
 import { createFadeIn, createLoadingPulse } from '../../lib/animations/utils';
 
@@ -10,6 +11,7 @@ interface LoadingStateProps {
 }
 
 export function LoadingState({ message, size = 'large' }: LoadingStateProps) {
+  const colors = useColors();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -35,7 +37,7 @@ export function LoadingState({ message, size = 'large' }: LoadingStateProps) {
           },
         ]}
       >
-        <ActivityIndicator size={size} color={Colors.primary} />
+        <ActivityIndicator size={size} color={colors.primary} />
       </Animated.View>
       {message && (
         <Typography
