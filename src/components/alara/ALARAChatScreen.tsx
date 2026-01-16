@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { LinearGradient } from "expo-linear-gradient"
 import { useALARA } from "../../context/ALARAContext"
+import type { ALARAPersonality } from "../../lib/openrouter/client"
 import { ChatBubble } from "../checkin/ChatBubble"
 import {
   Gradients,
@@ -25,16 +26,7 @@ import { Typography } from "../ui/Typography"
 import { PersonalitySelectionModal } from "./PersonalitySelectionModal"
 import { createFadeIn } from "../../lib/animations/utils"
 
-export interface ChatMessage {
-  id: string
-  text: string
-  isALARA: boolean
-  timestamp: Date
-  emoji?: string
-}
-
-// Re-export for use in context
-export type { ChatMessage }
+// ChatMessage is exported from context, no need to re-export here
 
 interface ALARAChatScreenProps {
   onClose?: () => void
@@ -115,21 +107,22 @@ export function ALARAChatScreen({ onClose }: ALARAChatScreenProps) {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={[styles.container, { backgroundColor: colors.background }]}
-        keyboardVerticalOffset={insets.top}
+        // keyboardVerticalOffset={insets.top}
       >
         <Animated.View
           style={[
             styles.content,
             {
               opacity: fadeAnim,
-              paddingTop: insets.top + Spacing.md,
-              paddingBottom: insets.bottom + Spacing.md,
+              // paddingTop: insets.top,
             },
           ]}
         >
           {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border + "40" }]}>
-            <View style={styles.headerContent}>
+          <View style={[styles.header, { borderBottomColor: colors.border + "20" }]}>
+            <View
+              style={[styles.headerContent, { paddingTop: Spacing.sm, paddingBottom: Spacing.md }]}
+            >
               <View style={styles.alaraHeader}>
                 <View style={[styles.alaraAvatar, { backgroundColor: colors.primary + "20" }]}>
                   <Typography variant="h2">💜</Typography>
@@ -195,7 +188,15 @@ export function ALARAChatScreen({ onClose }: ALARAChatScreenProps) {
           </ScrollView>
 
           {/* Input Area */}
-          <View style={[styles.inputContainer, { borderTopColor: colors.border + "40" }]}>
+          <View
+            style={[
+              styles.inputContainer,
+              {
+                borderTopColor: colors.border + "20",
+                paddingBottom: insets.bottom + Spacing.md,
+              },
+            ]}
+          >
             <View style={[styles.inputWrapper, { backgroundColor: colors.surface }]}>
               <TextInput
                 style={[styles.input, { color: colors.text }]}
@@ -222,7 +223,8 @@ export function ALARAChatScreen({ onClose }: ALARAChatScreenProps) {
               >
                 <Typography
                   variant="h3"
-                  color={!inputText.trim() || isTyping ? "textDisabled" : "text"}
+                  color={!inputText.trim() || isTyping ? "textSecondary" : "text"}
+                  style={!inputText.trim() || isTyping ? { opacity: 0.3 } : undefined}
                 >
                   ➤
                 </Typography>
@@ -300,8 +302,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
+    backgroundColor: "transparent",
   },
   headerContent: {
     flexDirection: "row",
@@ -331,8 +333,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContent: {
-    padding: Spacing.md,
+    padding: Spacing.lg,
     paddingBottom: Spacing.xl,
+    flexGrow: 1,
   },
   emptyState: {
     alignItems: "center",
@@ -375,9 +378,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 3,
   },
   inputContainer: {
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
+    backgroundColor: "transparent",
   },
   inputWrapper: {
     flexDirection: "row",

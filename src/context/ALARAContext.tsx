@@ -2,7 +2,11 @@ import React, { createContext, useContext, useState, useCallback, ReactNode, use
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase/client';
 import { generateALARAResponse as generateOpenRouterResponse, type ALARAPersonality } from '../lib/openrouter/client';
-import { loadUserContext, buildContextString } from '../lib/openrouter/userContext';
+import { buildALARAContext, buildContextString } from '../lib/openrouter/contextBuilder';
+import { parseActionsFromResponse } from '../lib/openrouter/actions';
+import { executeActions } from '../lib/openrouter/actionExecutors';
+import { updateConversationSummaryIfNeeded } from '../lib/openrouter/conversationSummary';
+import { loadShortTermMemory } from '../lib/openrouter/memory';
 import Constants from 'expo-constants';
 
 export type ALARAState = 'idle' | 'calm' | 'reminder' | 'concern' | 'emergency' | 'thinking';
@@ -50,7 +54,6 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
   const [isTyping, setIsTyping] = useState(false);
   const [personality, setPersonality] = useState<ALARAPersonality>('friendly');
   const [hasPersonalitySet, setHasPersonalitySet] = useState(false);
-  const [userContextString, setUserContextString] = useState<string>('');
 
   // Load user's ALARA personality preference
   const loadPersonality = useCallback(async () => {
@@ -94,48 +97,14 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
     }
   }, [chatHistory.length]);
 
-  // Load user context for ALARA
-  const loadUserContextForALARA = useCallback(async () => {
-    if (!user?.id) {
-      setUserContextString('');
-      return;
-    }
-
-    try {
-      const context = await loadUserContext(user.id);
-      if (context) {
-        const contextString = buildContextString(context);
-        setUserContextString(contextString);
-      } else {
-        setUserContextString('');
-      }
-    } catch (error) {
-      console.error('Error loading user context:', error);
-      setUserContextString('');
-    }
-  }, [user?.id]);
-
   // Load chat history and personality on mount
   useEffect(() => {
     if (user?.id) {
       loadPersonality();
       loadChatHistory();
-      loadUserContextForALARA();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
-
-  // Refresh user context periodically (every 5 minutes) or when chat history changes significantly
-  useEffect(() => {
-    if (!user?.id) return;
-
-    // Refresh context when new messages are added (user might have updated their profile)
-    const interval = setInterval(() => {
-      loadUserContextForALARA();
-    }, 5 * 60 * 1000); // Every 5 minutes
-
-    return () => clearInterval(interval);
-  }, [user?.id, loadUserContextForALARA]);
 
   const showMessage = useCallback((newMessage: ALARAMessage) => {
     setMessage(newMessage);
@@ -221,32 +190,75 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
       return "Hey! I'm having trouble connecting right now. Can you check the API key? 😊";
     }
 
-    console.log('[ALARA] API key found, personality:', personality, 'context length:', userContextString.length);
-
-    // Convert chat history to OpenRouter format
-    const historyForAPI = chatHistory
-      .filter((msg) => msg.text.trim().length > 0)
-      .map((msg) => ({
-        role: msg.isALARA ? ('assistant' as const) : ('user' as const),
-        content: msg.text,
-      }));
+    if (!user?.id) {
+      setState('calm');
+      return "I need to know who you are to chat. Please sign in! 😊";
+    }
 
     setState('thinking');
 
     try {
-      // Use OpenRouter to generate response with user context
-      const response = await generateOpenRouterResponse(
+      // Build context using new context builder (fetches only relevant data)
+      // If context building fails, continue with empty context
+      let contextString = '';
+      let historyForAPI: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+      
+      try {
+        const context = await buildALARAContext(user.id, userMessage);
+        contextString = buildContextString(context);
+        console.log('[ALARA] Context built, personality:', personality);
+      } catch (contextError) {
+        console.warn('[ALARA] Context building failed, continuing without context:', contextError);
+        // Continue with empty context - response will still work
+      }
+
+      // Load short-term memory (last 5-8 messages for cost efficiency)
+      // Note: We don't send full history - only recent messages for continuity
+      try {
+        const shortTermMemory = await loadShortTermMemory(user.id, 8);
+        historyForAPI = shortTermMemory.messages
+          .filter((msg) => msg.content.trim().length > 0)
+          .map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+          }));
+      } catch (memoryError) {
+        console.warn('[ALARA] Short-term memory loading failed, continuing without history:', memoryError);
+        // Continue with empty history - response will still work
+      }
+
+      // Use OpenRouter to generate response with new context system
+      console.log('[ALARA] Calling OpenRouter API with context length:', contextString.length, 'history messages:', historyForAPI.length);
+      const rawResponse = await generateOpenRouterResponse(
         userMessage,
         personality,
         historyForAPI,
         apiKey,
         undefined, // model (use default)
-        userContextString // user context
+        contextString, // user context (built from memory system)
+        true // enable actions
       );
+      console.log('[ALARA] Received response from OpenRouter');
+
+      // Parse actions from response
+      console.log('[ALARA] Parsing response, length:', rawResponse.length);
+      const { cleanMessage, actions } = parseActionsFromResponse(rawResponse);
+      console.log('[ALARA] Parsed message, actions count:', actions.length);
 
       // Determine state based on response content (simple heuristic)
-      const lowerResponse = response.toLowerCase();
-      if (lowerResponse.includes('emergency') || lowerResponse.includes('911') || lowerResponse.includes('urgent')) {
+      // Check both user message and response for emergency
+      const lowerUserMessage = userMessage.toLowerCase();
+      const lowerResponse = cleanMessage.toLowerCase();
+      const isEmergency =
+        lowerUserMessage.includes('emergency') ||
+        lowerUserMessage.includes('911') ||
+        lowerUserMessage.includes('urgent') ||
+        lowerUserMessage.includes('help me') ||
+        lowerResponse.includes('emergency') ||
+        lowerResponse.includes('911') ||
+        lowerResponse.includes('urgent');
+
+      if (isEmergency) {
         setState('emergency');
       } else if (lowerResponse.includes('concern') || lowerResponse.includes('worry') || lowerResponse.includes('symptom')) {
         setState('concern');
@@ -254,8 +266,33 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
         setState('calm');
       }
 
-      console.log('[ALARA] Response received:', response.substring(0, 50) + '...');
-      return response;
+      // Execute actions if user is authenticated
+      if (user?.id && actions.length > 0) {
+        console.log('[ALARA] Executing actions:', actions);
+        const actionResults = await executeActions(user.id, actions);
+        
+        // Log results (could show to user if needed)
+        actionResults.forEach((result, index) => {
+          if (result.success) {
+            console.log('[ALARA] Action succeeded:', actions[index].type, result.message);
+          } else {
+            console.warn('[ALARA] Action failed:', actions[index].type, result.error);
+          }
+        });
+      }
+
+      console.log('[ALARA] Response received:', cleanMessage.substring(0, 50) + '...');
+      
+      // Update conversation summary if needed (cost-efficient: every 10 messages, topic shifts, or after emergencies)
+      // Emergency mode bypasses summaries entirely
+      // Do this asynchronously without awaiting to avoid blocking the response
+      const totalMessageCount = chatHistory.length + 1; // +1 for the message we just sent
+      updateConversationSummaryIfNeeded(user.id, totalMessageCount, isEmergency, userMessage).catch((error) => {
+        // Silently fail - summary updates are non-critical
+        console.error('[ALARA] Summary update failed (non-critical):', error);
+      });
+
+      return cleanMessage;
     } catch (error) {
       console.error('[ALARA] Error generating response:', error);
       setState('calm');
@@ -272,7 +309,7 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
 
       return fallbackResponses[personality] || fallbackResponses.friendly;
     }
-  }, [personality, chatHistory, setState, userContextString]);
+  }, [personality, chatHistory, setState, user?.id]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim()) {
@@ -292,14 +329,19 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
       };
 
       setChatHistory((prev) => [...prev, userMessage]);
-      await saveMessage(userMessage);
+      // Save message asynchronously - don't block on it
+      saveMessage(userMessage).catch((error) => {
+        console.error('[ALARA] Failed to save user message (non-critical):', error);
+      });
 
       // Show typing indicator
       setIsTyping(true);
       setState('thinking');
 
       // Generate ALARA response
+      console.log('[ALARA] Starting response generation...');
       const responseText = await generateALARAResponse(text);
+      console.log('[ALARA] Response generated successfully, length:', responseText.length);
 
       // Add ALARA response to history
       const alaraMessage: ChatMessage = {
@@ -311,7 +353,10 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
 
       setIsTyping(false);
       setChatHistory((prev) => [...prev, alaraMessage]);
-      await saveMessage(alaraMessage);
+      // Save ALARA message asynchronously - don't block on it
+      saveMessage(alaraMessage).catch((error) => {
+        console.error('[ALARA] Failed to save ALARA message (non-critical):', error);
+      });
     } catch (error) {
       console.error('Error in sendMessage:', error);
       setIsTyping(false);
