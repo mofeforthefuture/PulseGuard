@@ -13,7 +13,10 @@ export default {
       backgroundColor: "#ffffff"
     },
     ios: {
-      supportsTablet: true
+      supportsTablet: true,
+      infoPlist: {
+        NSMotionUsageDescription: "PulseGuard needs access to motion data to track your daily steps for health monitoring."
+      }
     },
     android: {
       adaptiveIcon: {

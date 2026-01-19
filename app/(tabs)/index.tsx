@@ -4,6 +4,7 @@ import { SafeAreaView } from '../../src/components/ui/SafeAreaView';
 import { Card } from '../../src/components/ui/Card';
 import { Button } from '../../src/components/ui/Button';
 import { Typography } from '../../src/components/ui/Typography';
+import { ActivityCard } from '../../src/components/activity/ActivityCard';
 import { useRouter } from 'expo-router';
 import { Spacing } from '../../src/lib/design/tokens';
 import { useColors } from '../../src/lib/design/useColors';
@@ -56,6 +57,9 @@ export default function DashboardScreen() {
             style={styles.quickActionButton}
           />
         </Card>
+
+        {/* Activity Tracking Card */}
+        <ActivityCard />
 
         <Card>
           <Typography variant="h3" color="text" weight="semibold" style={styles.cardTitle}>
