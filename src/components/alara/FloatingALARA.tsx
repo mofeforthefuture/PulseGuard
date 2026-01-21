@@ -43,7 +43,8 @@ export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps)
   // Hide on emergency screen, when not logged in, or in auth/onboarding phase
   const isInAuthFlow = pathname?.includes('/(auth)') || pathname?.includes('/onboarding');
   const isEmergencyScreen = pathname?.includes('/emergency');
-  const shouldHide = isEmergencyScreen || !isVisible || !user || isInAuthFlow;
+  const isChatScreen = pathname?.includes('/alara-chat');
+  const shouldHide = isEmergencyScreen || !isVisible || !user || isInAuthFlow || isChatScreen;
 
   // Animation refs
   const breatheAnim = useRef(new Animated.Value(1)).current;

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase/client';
 import { generateALARAResponse as generateOpenRouterResponse, type ALARAPersonality } from '../lib/openrouter/client';
@@ -7,6 +7,7 @@ import { parseActionsFromResponse } from '../lib/openrouter/actions';
 import { executeActions } from '../lib/openrouter/actionExecutors';
 import { updateConversationSummaryIfNeeded } from '../lib/openrouter/conversationSummary';
 import { loadShortTermMemory } from '../lib/openrouter/memory';
+import { Audio } from 'expo-av';
 import Constants from 'expo-constants';
 
 export type ALARAState = 'idle' | 'calm' | 'reminder' | 'concern' | 'emergency' | 'thinking';
@@ -47,13 +48,72 @@ const ALARAContext = createContext<ALARAContextType | undefined>(undefined);
 
 export function ALARAProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [state, setState] = useState<ALARAState>('idle');
+  const [state, setStateInternal] = useState<ALARAState>('idle');
   const [message, setMessage] = useState<ALARAMessage | null>(null);
   const [isVisible, setIsVisible] = useState(true);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [personality, setPersonality] = useState<ALARAPersonality>('friendly');
   const [hasPersonalitySet, setHasPersonalitySet] = useState(false);
+  const previousStateRef = useRef<ALARAState>('idle');
+  const soundRefs = useRef<{ messageSound: Audio.Sound | null; errorSound: Audio.Sound | null }>({
+    messageSound: null,
+    errorSound: null,
+  });
+
+  // Load sound files
+  useEffect(() => {
+    const loadSounds = async () => {
+      try {
+        // Load message notification sound
+        const { sound: messageSound } = await Audio.Sound.createAsync(
+          require('../assets/sounds/messageNotification.mp3'),
+          { shouldPlay: false, volume: 0.5 }
+        );
+        soundRefs.current.messageSound = messageSound;
+
+        // Load error sound
+        const { sound: errorSound } = await Audio.Sound.createAsync(
+          require('../assets/sounds/error.mp3'),
+          { shouldPlay: false, volume: 0.6 }
+        );
+        soundRefs.current.errorSound = errorSound;
+      } catch (error) {
+        console.log('Could not load ALARA sounds (this is okay):', error);
+      }
+    };
+
+    loadSounds();
+
+    // Cleanup sounds on unmount
+    return () => {
+      soundRefs.current.messageSound?.unloadAsync();
+      soundRefs.current.errorSound?.unloadAsync();
+    };
+  }, []);
+
+  // Play sound when state changes to concern or emergency
+  const setState = useCallback((newState: ALARAState) => {
+    const previousState = previousStateRef.current;
+    setStateInternal(newState);
+    previousStateRef.current = newState;
+
+    // Play error sound when transitioning to concern or emergency
+    if ((newState === 'concern' || newState === 'emergency') && previousState !== newState) {
+      soundRefs.current.errorSound?.replayAsync().catch((error) => {
+        console.log('Could not play error sound:', error);
+      });
+    }
+  }, []);
+
+  // Play message notification sound
+  const playMessageSound = useCallback(async () => {
+    try {
+      await soundRefs.current.messageSound?.replayAsync();
+    } catch (error) {
+      console.log('Could not play message sound:', error);
+    }
+  }, []);
 
   // Load user's ALARA personality preference
   const loadPersonality = useCallback(async () => {
@@ -353,6 +413,10 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
 
       setIsTyping(false);
       setChatHistory((prev) => [...prev, alaraMessage]);
+      
+      // Play message notification sound for new ALARA message
+      playMessageSound();
+      
       // Save ALARA message asynchronously - don't block on it
       saveMessage(alaraMessage).catch((error) => {
         console.error('[ALARA] Failed to save ALARA message (non-critical):', error);
@@ -371,7 +435,7 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
       };
       setChatHistory((prev) => [...prev, errorMessage]);
     }
-  }, [generateALARAResponse, saveMessage, setState]);
+  }, [generateALARAResponse, saveMessage, setState, playMessageSound]);
 
   const clearChatHistory = useCallback(async () => {
     if (!user?.id) return;

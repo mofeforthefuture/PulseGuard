@@ -4,6 +4,7 @@
  */
 
 import { getActionSystemPrompt } from './actions';
+import { formatMetadataContext } from './metadata';
 
 export type ALARAPersonality = 'friendly' | 'sassy' | 'rude' | 'fun_nurse' | 'professional' | 'caring';
 
@@ -122,6 +123,10 @@ export async function generateALARAResponse(
   const contextString = userContext ? userContext : '';
   const actionInstructions = enableActions ? getActionSystemPrompt() : '';
   
+  // Automatically inject current datetime and timezone metadata
+  // This ensures the model always knows the current date/time without inference
+  const metadataContext = formatMetadataContext();
+  
   // Add memory humility and safety rules
   const memoryRules = `
 \n\nMEMORY & SAFETY RULES:
@@ -132,7 +137,7 @@ export async function generateALARAResponse(
 - When referencing past conversations, be humble: "I think you mentioned..." or "If I remember correctly..."
 - If asked about something you don't have context for, ask the user instead of making assumptions.`;
 
-  const fullSystemPrompt = systemPrompt + contextString + actionInstructions + memoryRules + '\n\nImportant: Respond naturally like you\'re texting a friend. Don\'t use phrases like "I\'m here to help" or "I can assist you" - just talk normally.';
+  const fullSystemPrompt = metadataContext + '\n\n' + systemPrompt + contextString + actionInstructions + memoryRules + '\n\nImportant: Respond naturally like you\'re texting a friend. Don\'t use phrases like "I\'m here to help" or "I can assist you" - just talk normally.';
 
   // Build message history (last 10 messages for context)
   const recentHistory = chatHistory.slice(-10);

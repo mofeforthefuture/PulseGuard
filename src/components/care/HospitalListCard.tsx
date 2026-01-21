@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+// import { Audio } from 'expo-av'; // Uncomment if adding sound files
 import { Card } from '../ui/Card';
 import { Typography } from '../ui/Typography';
 import { Button } from '../ui/Button';
@@ -28,17 +28,25 @@ export function HospitalListCard({
   const colors = useColors();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Play copy sound
+  // Play copy sound (optional - gracefully fails if sound file not available)
   const playCopySound = async () => {
     try {
+      // Note: Add a copy.mp3 file to assets/sounds/ for sound feedback
+      // For now, we'll skip sound and rely on haptics
+      // You can uncomment and add the sound file if desired:
+      /*
       const { sound } = await Audio.Sound.createAsync(
-        { uri: 'https://assets.masco.dev/2a733c/sounds/copy.mp3' },
-        { shouldPlay: true, volume: 0.5 }
+        require('../../assets/sounds/copy.mp3'),
+        { shouldPlay: true, volume: 0.3 }
       );
-      await sound.unloadAsync();
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+      */
     } catch (error) {
-      // Fallback: use system sound if custom sound fails
-      console.log('Could not play copy sound:', error);
+      // Silently fail - haptics will still provide feedback
     }
   };
 
@@ -178,7 +186,9 @@ export function HospitalListCard({
                       onPress={() => handleCopyCardId(hospital.patient_card_id!)}
                       style={[
                         styles.copyButton,
-                        copiedId === hospital.patient_card_id && styles.copyButtonActive,
+                        copiedId === hospital.patient_card_id && {
+                          backgroundColor: colors.success + '20',
+                        },
                       ]}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
@@ -204,7 +214,10 @@ export function HospitalListCard({
             <View style={styles.actions}>
               <TouchableOpacity
                 onPress={() => handleCopyHospitalDetails(hospital)}
-                style={styles.copyDetailsButton}
+                style={[
+                  styles.copyDetailsButton,
+                  { backgroundColor: colors.primary + '10' },
+                ]}
               >
                 <Typography variant="bodySmall" color="primary" weight="medium">
                   📋 Copy Details
@@ -313,9 +326,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     backgroundColor: 'transparent',
   },
-  copyButtonActive: {
-    backgroundColor: colors.success + '20',
-  },
   copyIcon: {
     fontSize: 16,
   },
@@ -336,7 +346,6 @@ const styles = StyleSheet.create({
   copyDetailsButton: {
     padding: Spacing.sm,
     borderRadius: BorderRadius.sm,
-    backgroundColor: colors.primary + '10',
   },
   actionButton: {
     flex: 1,

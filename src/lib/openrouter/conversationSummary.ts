@@ -12,6 +12,8 @@ import { loadConversationSummary, saveConversationSummary } from "./memory"
 
 const SUMMARY_UPDATE_INTERVAL = 10 // Update every 10 messages
 const SUMMARY_TOKEN_LIMIT = 150 // Max tokens for summary
+import { formatMetadataContext } from './metadata';
+
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 /**
