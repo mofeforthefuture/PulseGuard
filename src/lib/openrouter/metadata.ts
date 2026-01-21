@@ -56,13 +56,38 @@ export function getRequestMetadata(): RequestMetadata {
   });
   const dayOfWeek = dayOfWeekFormatter.format(now);
   
-  // Get UTC offset
-  const offsetFormatter = new Intl.DateTimeFormat('en-US', {
+  // Get UTC offset for the timezone
+  // For Africa/Lagos, this is always UTC+1, but we calculate it for extensibility
+  const utcDate = new Date(Date.UTC(2024, 0, 1, 12, 0, 0)); // Noon UTC on Jan 1, 2024
+  const formatterWithOffset = new Intl.DateTimeFormat('en', {
     timeZone: timezone,
     timeZoneName: 'longOffset',
   });
-  const offsetParts = offsetFormatter.formatToParts(now);
-  const timezoneOffset = offsetParts.find(p => p.type === 'timeZoneName')?.value || '+01:00';
+  
+  // Try to extract offset from formatted string, fallback to calculation
+  let timezoneOffset = '+01:00'; // Default for Africa/Lagos
+  try {
+    const parts = formatterWithOffset.formatToParts(utcDate);
+    const offsetPart = parts.find(p => p.type === 'timeZoneName');
+    if (offsetPart?.value) {
+      // Extract offset from string like "GMT+1" or "UTC+01:00"
+      const offsetMatch = offsetPart.value.match(/([+-])(\d{1,2}):?(\d{2})?/);
+      if (offsetMatch) {
+        const sign = offsetMatch[1];
+        const hours = offsetMatch[2].padStart(2, '0');
+        const minutes = offsetMatch[3] || '00';
+        timezoneOffset = `${sign}${hours}:${minutes}`;
+      }
+    }
+  } catch (error) {
+    // Fallback: calculate offset manually
+    const localDate = new Date(utcDate.toLocaleString('en-US', { timeZone: timezone }));
+    const offsetMs = localDate.getTime() - utcDate.getTime();
+    const offsetHours = Math.floor(Math.abs(offsetMs) / (1000 * 60 * 60));
+    const offsetMinutes = Math.floor((Math.abs(offsetMs) % (1000 * 60 * 60)) / (1000 * 60));
+    const sign = offsetMs >= 0 ? '+' : '-';
+    timezoneOffset = `${sign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+  }
   
   return {
     datetime: isoDateTime,
