@@ -38,7 +38,7 @@ export function SettingsItem({
       </Typography>
       {isToggle && toggleValue !== undefined && onToggleChange ? (
         <Toggle value={toggleValue} onValueChange={onToggleChange} />
-      ) : showArrow && isAction ? (
+      ) : showArrow && isAction && rightIcon !== 'toggle' ? (
         <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
       ) : null}
     </View>

@@ -110,6 +110,33 @@ export async function getWeeklyActivityTrend(
 }
 
 /**
+ * Get recent activity logs
+ */
+export async function getRecentActivityLogs(
+  userId: string,
+  limit: number = 5
+): Promise<ActivityLog[]> {
+  try {
+    const { data, error } = await supabase
+      .from('activity_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('[Activity] Error fetching recent activity logs:', error);
+      return [];
+    }
+
+    return (data || []) as ActivityLog[];
+  } catch (error) {
+    console.error('[Activity] Error fetching recent activity logs:', error);
+    return [];
+  }
+}
+
+/**
  * Get activity statistics
  */
 export async function getActivityStats(userId: string): Promise<ActivityStats> {

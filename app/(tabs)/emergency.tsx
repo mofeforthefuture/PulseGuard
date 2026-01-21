@@ -7,6 +7,7 @@ import {
   Alert,
   Dimensions,
   Animated,
+  Platform,
 } from 'react-native';
 import * as Location from 'expo-location';
 import { SafeAreaView } from '../../src/components/ui/SafeAreaView';
@@ -20,10 +21,13 @@ import {
   EditLocationCircleModal,
 } from '../../src/components/location';
 import { EmergencySOSScreen } from '../../src/components/emergency';
-import { Colors, Spacing, BorderRadius } from '../../src/lib/design/tokens';
+import { EmergencySOSFlow } from '../../src/components/emergency/EmergencySOSFlow';
+import { Colors, Spacing, BorderRadius, Shadows } from '../../src/lib/design/tokens';
 import { LocationCircleWithContacts } from '../../src/types/location';
 import { useAuth } from '../../src/context/AuthContext';
 import { createStaggeredEntrance } from '../../src/lib/animations/utils';
+import { getPrimaryHospital } from '../../src/lib/services/hospitalService';
+import type { Hospital } from '../../src/types/care';
 
 const MAP_HEIGHT = Dimensions.get('window').height * 0.4;
 
@@ -36,6 +40,8 @@ export default function EmergencyScreen() {
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCircle, setEditingCircle] = useState<LocationCircleWithContacts | null>(null);
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [primaryHospital, setPrimaryHospital] = useState<Hospital | null>(null);
   const locationCardAnims = useRef<Animated.Value[]>([]).current;
 
   // Initialize animations for location cards
@@ -104,25 +110,31 @@ export default function EmergencyScreen() {
     setLocationCircles(mockCircles);
   }, [user, userLocation]);
 
+  // Load primary hospital
+  useEffect(() => {
+    const loadPrimaryHospital = async () => {
+      if (user?.id) {
+        const hospital = await getPrimaryHospital(user.id);
+        setPrimaryHospital(hospital);
+      }
+    };
+    loadPrimaryHospital();
+  }, [user?.id]);
+
   const handlePanicButton = () => {
-    Alert.alert(
-      'Activate Emergency SOS?',
-      'This will immediately contact your emergency contacts and share your location.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Activate SOS',
-          style: 'destructive',
-          onPress: () => {
-            setShowSOSScreen(true);
-            setIsActive(true);
-          },
-        },
-      ]
-    );
+    // One-tap activation - show countdown immediately
+    setShowCountdown(true);
+  };
+
+  const handleCountdownComplete = () => {
+    // After countdown, show the full SOS screen
+    setShowCountdown(false);
+    setShowSOSScreen(true);
+    setIsActive(true);
+  };
+
+  const handleCountdownCancel = () => {
+    setShowCountdown(false);
   };
 
   // Get emergency contacts from user profile and location circles
@@ -187,7 +199,19 @@ export default function EmergencyScreen() {
     setActiveCircleId(circle.id === activeCircleId ? undefined : circle.id);
   };
 
-  // Show SOS screen if activated
+  // Show countdown flow first
+  if (showCountdown) {
+    return (
+      <EmergencySOSFlow
+        onCancel={handleCountdownCancel}
+        onActivate={handleCountdownComplete}
+        userLocation={userLocation || undefined}
+        primaryHospital={primaryHospital}
+      />
+    );
+  }
+
+  // Show SOS screen if activated (after countdown)
   if (showSOSScreen) {
     const activeCircle = locationCircles.find((circle) => circle.id === activeCircleId);
     return (
@@ -199,6 +223,7 @@ export default function EmergencyScreen() {
         emergencyContacts={getEmergencyContacts()}
         activeLocationCircle={activeCircle}
         userLocation={userLocation || undefined}
+        userId={user?.id}
       />
     );
   }
@@ -217,15 +242,25 @@ export default function EmergencyScreen() {
           </Typography>
         </View>
 
-        {/* Panic Button */}
+        {/* Panic Button - Large, Red, Centered */}
         <View style={styles.panicContainer}>
-          <Button
-            title={isActive ? 'Emergency Active' : 'Panic Button'}
+          <TouchableOpacity
             onPress={handlePanicButton}
-            variant="emergency"
-            size="lg"
-            style={styles.panicButton}
-          />
+            activeOpacity={0.8}
+            style={styles.panicButtonContainer}
+            accessibilityRole="button"
+            accessibilityLabel="Emergency Panic Button"
+            accessibilityHint="Double tap to activate emergency SOS"
+          >
+            <View style={styles.panicButton}>
+              <Typography variant="display" color="text" weight="bold" style={styles.panicButtonText}>
+                SOS
+              </Typography>
+              <Typography variant="body" color="text" style={styles.panicButtonSubtext}>
+                Tap to activate
+              </Typography>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Location Circles Section */}
@@ -372,12 +407,45 @@ const styles = StyleSheet.create({
   },
   panicContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: Spacing.xl,
+    minHeight: 220,
+  },
+  panicButtonContainer: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    ...Platform.select({
+      ios: {
+        ...Shadows.xl,
+        shadowColor: Colors.emergency,
+        shadowOpacity: 0.5,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
   },
   panicButton: {
-    minWidth: 200,
-    minHeight: 200,
+    width: '100%',
+    height: '100%',
     borderRadius: 100,
+    backgroundColor: Colors.emergency,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  panicButtonText: {
+    color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: 4,
+    marginBottom: Spacing.xs,
+  },
+  panicButtonSubtext: {
+    color: '#FFFFFF',
+    textAlign: 'center',
+    opacity: 0.9,
+    fontSize: 14,
   },
   locationSection: {
     marginBottom: Spacing.xl,
