@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Animated,
   TextInput,
+  Text,
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
@@ -89,6 +90,11 @@ export function AddLocationCircleModal({
     }
   }, [visible, slideAnim, scaleAnim]);
 
+  const translateY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [300, 0],
+  });
+
   const handleGetCurrentLocation = async () => {
     setIsGettingLocation(true);
     try {
@@ -140,11 +146,6 @@ export function AddLocationCircleModal({
     setLocation(initialLocation || null);
     onClose();
   };
-
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [300, 0],
-  });
 
   return (
     <Modal

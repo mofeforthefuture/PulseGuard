@@ -4,10 +4,12 @@ import {
   StyleSheet,
   ScrollView,
   Animated,
+  TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MedicationCard } from './MedicationCard';
-import { TimelineView } from './TimelineView';
+import { DoseTimeline } from './DoseTimeline';
 import { MedicationWithDoses, MedicationDose } from '../../types/medication';
 import { Medication } from '../../types/health';
 import {
@@ -15,6 +17,8 @@ import {
   Gradients,
   Spacing,
   Animation,
+  BorderRadius,
+  Shadows,
 } from '../../lib/design/tokens';
 import { createStaggeredEntrance } from '../../lib/animations/utils';
 import { Typography } from '../ui/Typography';
@@ -23,11 +27,13 @@ import { Card } from '../ui/Card';
 interface MedicationTrackingScreenProps {
   medications: Medication[];
   onDoseTaken: (medicationId: string, doseId: string, takenAt: string) => void;
+  onEditMedication?: (medication: Medication, index: number) => void;
 }
 
 export function MedicationTrackingScreen({
   medications,
   onDoseTaken,
+  onEditMedication,
 }: MedicationTrackingScreenProps) {
   const [medicationsWithDoses, setMedicationsWithDoses] = useState<MedicationWithDoses[]>([]);
   const cardAnims = useRef<Animated.Value[]>([]).current;
@@ -267,14 +273,16 @@ export function MedicationTrackingScreen({
 
         {/* Timeline View */}
         {allDoses.length > 0 && (
-          <TimelineView doses={allDoses} onDoseToggle={handleDoseToggle} />
+          <DoseTimeline doses={allDoses} />
         )}
 
         {/* Medication Cards */}
         <View style={styles.medicationsSection}>
-          <Typography variant="h2" color="text" weight="bold" style={styles.sectionTitle}>
-            Your Medications
-          </Typography>
+          <View style={styles.sectionHeader}>
+            <Typography variant="h2" color="text" weight="bold" style={styles.sectionTitle}>
+              Your Medications
+            </Typography>
+          </View>
           {medicationsWithDoses.map((medication, index) => {
             const anim = cardAnims[index] || new Animated.Value(1);
             return (
@@ -292,10 +300,31 @@ export function MedicationTrackingScreen({
                   ],
                 }}
               >
-                <MedicationCard
-                  medication={medication}
-                  onDoseToggle={handleDoseToggle}
-                />
+                <View style={styles.cardWrapper}>
+                  <MedicationCard
+                    medication={medication}
+                    onDoseToggle={handleDoseToggle}
+                  />
+                  {onEditMedication && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        // Find the original medication by name match
+                        const originalIndex = medications.findIndex(
+                          (m) => m.name === medication.name
+                        );
+                        if (originalIndex >= 0) {
+                          onEditMedication(medications[originalIndex], originalIndex);
+                        }
+                      }}
+                      style={styles.editButton}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Typography variant="bodySmall" color="primary" weight="medium">
+                        Edit
+                      </Typography>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </Animated.View>
             );
           })}
@@ -359,8 +388,32 @@ const styles = StyleSheet.create({
   medicationsSection: {
     marginTop: Spacing.lg,
   },
-  sectionTitle: {
+  sectionHeader: {
     marginBottom: Spacing.md,
+  },
+  sectionTitle: {
+    // Title styles
+  },
+  cardWrapper: {
+    position: 'relative',
+    marginBottom: Spacing.md,
+  },
+  editButton: {
+    position: 'absolute',
+    top: Spacing.md,
+    right: Spacing.md,
+    padding: Spacing.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: BorderRadius.md,
+    zIndex: 10,
+    ...Platform.select({
+      ios: {
+        ...Shadows.sm,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   emptyCard: {
     alignItems: 'center',

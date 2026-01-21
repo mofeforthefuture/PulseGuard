@@ -10,6 +10,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { WaterLevelIndicator } from './WaterLevelIndicator';
 import { DrinkButton } from './DrinkButton';
+import { CustomAmountForm } from './CustomAmountForm';
+import { BottomSheet } from '../ui/BottomSheet';
+import { Button } from '../ui/Button';
 import { useALARA } from '../../context/ALARAContext';
 import {
   Colors,
@@ -31,10 +34,8 @@ interface HydrationTrackingScreenProps {
 
 const DEFAULT_GOAL = 2000; // 2L per day
 const DRINK_OPTIONS = [
-  { amount: 250, label: 'Glass', icon: '🥛' },
-  { amount: 500, label: 'Bottle', icon: '💧' },
-  { amount: 750, label: 'Large', icon: '🍶' },
-  { amount: 1000, label: 'Liter', icon: '🚰' },
+  { amount: 250, label: '250ml', icon: '🥛' },
+  { amount: 500, label: '500ml', icon: '💧' },
 ];
 
 export function HydrationTrackingScreen({
@@ -46,6 +47,7 @@ export function HydrationTrackingScreen({
   const { setState, showMessage } = useALARA();
   const [localAmount, setLocalAmount] = useState(currentAmount);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showCustomAmountSheet, setShowCustomAmountSheet] = useState(false);
   const celebrationScale = useRef(new Animated.Value(0)).current;
   const celebrationOpacity = useRef(new Animated.Value(0)).current;
 
@@ -118,6 +120,11 @@ export function HydrationTrackingScreen({
         });
       }
     }
+  };
+
+  const handleCustomAmount = (amount: number) => {
+    handleDrink(amount);
+    setShowCustomAmountSheet(false);
   };
 
   const percentage = Math.min((localAmount / goalAmount) * 100, 100);
@@ -209,6 +216,15 @@ export function HydrationTrackingScreen({
                 delay={index * 100}
               />
             ))}
+            {/* Custom Amount Button */}
+            <View style={styles.customButtonContainer}>
+              <Button
+                title="Custom"
+                onPress={() => setShowCustomAmountSheet(true)}
+                variant="outline"
+                style={styles.customButton}
+              />
+            </View>
           </View>
         </View>
 
@@ -256,6 +272,17 @@ export function HydrationTrackingScreen({
           <CelebrationParticles />
         </Animated.View>
       )}
+
+      {/* Custom Amount Bottom Sheet */}
+      <BottomSheet
+        visible={showCustomAmountSheet}
+        onClose={() => setShowCustomAmountSheet(false)}
+      >
+        <CustomAmountForm
+          onSave={handleCustomAmount}
+          onCancel={() => setShowCustomAmountSheet(false)}
+        />
+      </BottomSheet>
     </View>
   );
 }
@@ -391,6 +418,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  customButtonContainer: {
+    width: '100%',
+    marginTop: Spacing.sm,
+  },
+  customButton: {
+    width: '100%',
   },
   completionCard: {
     width: '100%',

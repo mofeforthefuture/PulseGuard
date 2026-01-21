@@ -62,11 +62,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="medications"
+        name="care"
         options={{
-          title: 'Medications',
+          title: 'Care',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="medical" size={size || 24} color={color} />
+            <Ionicons name="medical-outline" size={size || 24} color={color} />
           ),
         }}
       />
@@ -77,6 +77,12 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size || 24} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="medications"
+        options={{
+          href: null, // Hide from tab bar - accessible from Care module
         }}
       />
       <Tabs.Screen

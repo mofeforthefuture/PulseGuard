@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePathname, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useALARA, ALARAState } from '../../context/ALARAContext';
+import { useAuth } from '../../context/AuthContext';
 import { Gradients, Spacing, BorderRadius, Shadows, Animation } from '../../lib/design/tokens';
 import { useColors } from '../../lib/design/useColors';
 import { Typography } from '../ui/Typography';
@@ -24,6 +25,7 @@ const ALARA_ASSETS = {
 const MASCOT_SIZE = 64;
 const EXPANDED_SIZE = 80;
 const CHAT_BUBBLE_MAX_WIDTH = 280;
+const TAB_BAR_HEIGHT = 60; // Base height of the tab bar (without safe area insets)
 
 interface FloatingALARAProps {
   position?: 'bottom-right' | 'bottom-left';
@@ -31,14 +33,18 @@ interface FloatingALARAProps {
 
 export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps) {
   const { state, message, hideMessage, isVisible } = useALARA();
+  const { user } = useAuth();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const router = useRouter();
   const [imageError, setImageError] = useState(false);
 
-  // Hide on emergency screen
-  const shouldHide = pathname?.includes('/emergency') || !isVisible;
+  // Hide on emergency screen, when not logged in, or in auth/onboarding phase
+  const isInAuthFlow = pathname?.includes('/(auth)') || pathname?.includes('/onboarding');
+  const isEmergencyScreen = pathname?.includes('/emergency');
+  const isChatScreen = pathname?.includes('/alara-chat');
+  const shouldHide = isEmergencyScreen || !isVisible || !user || isInAuthFlow || isChatScreen;
 
   // Animation refs
   const breatheAnim = useRef(new Animated.Value(1)).current;
@@ -135,31 +141,10 @@ export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps)
     }
   }, [message, bubbleScaleAnim, bubbleOpacityAnim, scaleAnim]);
 
-  // State-based color animation
+  // State-based color animation (for smooth transitions)
   useEffect(() => {
-    let targetValue = 0;
-    switch (state) {
-      case 'calm':
-        targetValue = 0.25;
-        break;
-      case 'reminder':
-        targetValue = 0.5;
-        break;
-      case 'concern':
-        targetValue = 0.75;
-        break;
-      case 'emergency':
-        targetValue = 1;
-        break;
-      case 'thinking':
-        targetValue = 0.1;
-        break;
-      default:
-        targetValue = 0;
-    }
-
     Animated.spring(colorAnim, {
-      toValue: targetValue,
+      toValue: 1, // Always animate to 1, color is determined by state directly
       useNativeDriver: false, // Color animations can't use native driver
       ...Animation.spring,
     }).start();
@@ -185,22 +170,38 @@ export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps)
     return () => float.stop();
   }, [translateYAnim]);
 
-  const getStateColor = () => {
-    const value = colorAnim._value;
-    if (value < 0.2) return colors.primary;
-    if (value < 0.4) return colors.calm;
-    if (value < 0.6) return colors.reminder;
-    if (value < 0.8) return colors.concern;
-    return colors.emergency;
+  const getStateColor = (): string => {
+    switch (state) {
+      case 'calm':
+        return '#4CAF50'; // Green
+      case 'reminder':
+        return '#FF9800'; // Amber
+      case 'concern':
+        return '#FF6B6B'; // Coral
+      case 'emergency':
+        return '#FF4757'; // Red
+      case 'thinking':
+        return colors.primary;
+      default:
+        return colors.primary;
+    }
   };
 
   const getStateGradient = (): [string, string] => {
-    const value = colorAnim._value;
-    if (value < 0.2) return [Gradients.primary.start, Gradients.primary.end];
-    if (value < 0.4) return [Gradients.calm.start, Gradients.calm.end];
-    if (value < 0.6) return [Gradients.reminder.start, Gradients.reminder.end];
-    if (value < 0.8) return [Gradients.concern.start, Gradients.concern.end];
-    return [Gradients.emergency.start, Gradients.emergency.end];
+    switch (state) {
+      case 'calm':
+        return ['#4CAF50', '#66BB6A']; // Green gradient
+      case 'reminder':
+        return ['#FF9800', '#FFB74D']; // Amber gradient
+      case 'concern':
+        return ['#FF6B6B', '#FF8E8E']; // Coral gradient
+      case 'emergency':
+        return ['#FF4757', '#FF6B7A']; // Red gradient
+      case 'thinking':
+        return [Gradients.primary.start, Gradients.primary.end];
+      default:
+        return [Gradients.primary.start, Gradients.primary.end];
+    }
   };
 
   const getStateExpression = (): string => {
@@ -232,7 +233,7 @@ export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps)
       style={[
         styles.container,
         {
-          bottom: insets.bottom + Spacing.md,
+          bottom: insets.bottom + TAB_BAR_HEIGHT + Spacing.md,
           [isRight ? 'right' : 'left']: Spacing.md,
         },
       ]}
@@ -322,10 +323,32 @@ export function FloatingALARA({ position = 'bottom-right' }: FloatingALARAProps)
               styles.stateRing,
               {
                 borderColor: getStateColor(),
+                opacity: 0.6,
+              },
+            ]}
+          />
+          
+          {/* State indicator glow */}
+          <Animated.View
+            style={[
+              styles.stateGlow,
+              {
+                backgroundColor: getStateColor(),
                 opacity: colorAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [0.3, 0.8],
+                  outputRange: [0.2, 0.5],
                 }),
+              },
+            ]}
+          />
+          
+          {/* Colored background circle */}
+          <Animated.View
+            style={[
+              styles.mascotBackground,
+              {
+                backgroundColor: getStateColor(),
+                opacity: 0.15,
               },
             ]}
           />
@@ -380,6 +403,21 @@ const styles = StyleSheet.create({
     height: MASCOT_SIZE + 8,
     borderRadius: (MASCOT_SIZE + 8) / 2,
     borderWidth: 2,
+    zIndex: 1,
+  },
+  stateGlow: {
+    position: 'absolute',
+    width: MASCOT_SIZE + 16,
+    height: MASCOT_SIZE + 16,
+    borderRadius: (MASCOT_SIZE + 16) / 2,
+    zIndex: 0,
+  },
+  mascotBackground: {
+    position: 'absolute',
+    width: MASCOT_SIZE,
+    height: MASCOT_SIZE,
+    borderRadius: MASCOT_SIZE / 2,
+    zIndex: 0,
   },
   mascotImage: {
     ...Platform.select({

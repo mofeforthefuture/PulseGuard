@@ -5,6 +5,7 @@ import {
   Dimensions,
   Animated,
   Platform,
+  Text,
 } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -157,6 +158,8 @@ export function LocationMapView({
                 }}
                 onPress={() => onCirclePress?.(circle)}
                 anchor={{ x: 0.5, y: 0.5 }}
+                title={circle.name}
+                description={circle.contacts?.length ? `${circle.contacts.length} contact${circle.contacts.length > 1 ? 's' : ''}` : undefined}
               >
                 <View
                   style={[
@@ -174,7 +177,7 @@ export function LocationMapView({
                   >
                     {circle.icon ? (
                       <View style={styles.markerIcon}>
-                        {/* Icon would go here - using emoji for now */}
+                        <Text style={styles.markerIconText}>{circle.icon}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -254,6 +257,12 @@ const styles = StyleSheet.create({
     zIndex: -1,
   },
   markerIcon: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markerIconText: {
     fontSize: 16,
   },
 });

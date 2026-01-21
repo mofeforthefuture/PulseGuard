@@ -12,6 +12,8 @@ import { loadConversationSummary, saveConversationSummary } from "./memory"
 
 const SUMMARY_UPDATE_INTERVAL = 10 // Update every 10 messages
 const SUMMARY_TOKEN_LIMIT = 150 // Max tokens for summary
+import { formatMetadataContext } from './metadata';
+
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 /**
@@ -99,7 +101,12 @@ async function generateSummary(
     }
   }
 
-  const systemPrompt = `You are a conversation summarizer. Create a VERY concise summary (max ${SUMMARY_TOKEN_LIMIT} tokens, ~2-3 sentences) that captures:
+  // Automatically inject current datetime and timezone metadata
+  const metadataContext = formatMetadataContext();
+  
+  const systemPrompt = `${metadataContext}
+
+You are a conversation summarizer. Create a VERY concise summary (max ${SUMMARY_TOKEN_LIMIT} tokens, ~2-3 sentences) that captures:
 - Communication patterns (tone, style)
 - Health-related patterns (compliance, stress trends)
 - Relationship context (familiarity, comfort topics)

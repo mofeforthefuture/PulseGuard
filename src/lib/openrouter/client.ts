@@ -4,6 +4,8 @@
  */
 
 import { getActionSystemPrompt } from './actions';
+import { formatMetadataContext } from './metadata';
+import { formatToolsForOpenRouter } from './tools/openrouterSchemas';
 
 export type ALARAPersonality = 'friendly' | 'sassy' | 'rude' | 'fun_nurse' | 'professional' | 'caring';
 
@@ -12,12 +14,22 @@ export interface OpenRouterMessage {
   content: string;
 }
 
+export interface OpenRouterToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string; // JSON string
+  };
+}
+
 export interface OpenRouterResponse {
   id: string;
   choices: Array<{
     message: {
       role: string;
-      content: string;
+      content: string | null;
+      tool_calls?: OpenRouterToolCall[];
     };
     finish_reason: string;
   }>;
@@ -122,6 +134,10 @@ export async function generateALARAResponse(
   const contextString = userContext ? userContext : '';
   const actionInstructions = enableActions ? getActionSystemPrompt() : '';
   
+  // Automatically inject current datetime and timezone metadata
+  // This ensures the model always knows the current date/time without inference
+  const metadataContext = formatMetadataContext();
+  
   // Add memory humility and safety rules
   const memoryRules = `
 \n\nMEMORY & SAFETY RULES:
@@ -132,7 +148,7 @@ export async function generateALARAResponse(
 - When referencing past conversations, be humble: "I think you mentioned..." or "If I remember correctly..."
 - If asked about something you don't have context for, ask the user instead of making assumptions.`;
 
-  const fullSystemPrompt = systemPrompt + contextString + actionInstructions + memoryRules + '\n\nImportant: Respond naturally like you\'re texting a friend. Don\'t use phrases like "I\'m here to help" or "I can assist you" - just talk normally.';
+  const fullSystemPrompt = metadataContext + '\n\n' + systemPrompt + contextString + actionInstructions + memoryRules + '\n\nImportant: Respond naturally like you\'re texting a friend. Don\'t use phrases like "I\'m here to help" or "I can assist you" - just talk normally.';
 
   // Build message history (last 10 messages for context)
   const recentHistory = chatHistory.slice(-10);
@@ -152,6 +168,24 @@ export async function generateALARAResponse(
   ];
 
   try {
+    // Prepare tools for OpenRouter (log_blood_pressure and log_hydration)
+    const tools = enableActions ? formatToolsForOpenRouter().filter(
+      tool => tool.function.name === 'log_blood_pressure' || tool.function.name === 'log_hydration'
+    ) : [];
+
+    const requestBody: any = {
+      model: selectedModel,
+      messages,
+      temperature: 0.7,
+      max_tokens: 200, // Keep responses concise
+    };
+
+    // Add tools if enabled
+    if (tools.length > 0) {
+      requestBody.tools = tools;
+      requestBody.tool_choice = 'auto'; // Let model decide when to use tools
+    }
+
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
@@ -160,12 +194,7 @@ export async function generateALARAResponse(
         'HTTP-Referer': 'https://pulseguard.app', // Optional: for analytics
         'X-Title': 'PulseGuard', // Optional: for analytics
       },
-      body: JSON.stringify({
-        model: selectedModel,
-        messages,
-        temperature: 0.7,
-        max_tokens: 200, // Keep responses concise
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -189,7 +218,18 @@ export async function generateALARAResponse(
       throw new Error('No response from OpenRouter API');
     }
 
-    const content = data.choices[0].message.content.trim();
+    const message = data.choices[0].message;
+    
+    // Check if model wants to call tools
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      // Return tool calls in a format that can be parsed
+      // We'll handle execution in ALARAContext
+      const toolCallsJson = JSON.stringify(message.tool_calls);
+      const content = message.content || '';
+      return `${content}\n[TOOL_CALLS:${toolCallsJson}]`;
+    }
+
+    const content = message.content?.trim() || '';
     if (!content) {
       console.error('Empty content in OpenRouter response:', data);
       throw new Error('Empty response from OpenRouter API');

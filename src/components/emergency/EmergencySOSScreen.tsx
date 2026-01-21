@@ -22,6 +22,7 @@ import {
   Animation,
 } from '../../lib/design/tokens';
 import { LocationCircleWithContacts } from '../../types/location';
+import { getPrimaryHospital, formatHospitalForEmergency } from '../../lib/services/hospitalService';
 import * as Location from 'expo-location';
 import * as SMS from 'expo-sms';
 
@@ -39,6 +40,7 @@ interface EmergencySOSScreenProps {
   emergencyContacts: EmergencyContact[];
   activeLocationCircle?: LocationCircleWithContacts;
   userLocation?: { latitude: number; longitude: number };
+  userId?: string;
 }
 
 type ContactStatus = 'pending' | 'calling' | 'texting' | 'success' | 'failed';
@@ -54,6 +56,7 @@ export function EmergencySOSScreen({
   emergencyContacts,
   activeLocationCircle,
   userLocation,
+  userId,
 }: EmergencySOSScreenProps) {
   const { setState, showMessage } = useALARA();
   const [isActive, setIsActive] = useState(false);
@@ -227,7 +230,17 @@ export function EmergencySOSScreen({
       const isAvailable = await SMS.isAvailableAsync();
       if (isAvailable && userLocation) {
         const locationText = `https://maps.google.com/?q=${userLocation.latitude},${userLocation.longitude}`;
-        const message = `🚨 EMERGENCY ALERT 🚨\n\nI need help immediately.\n\nMy location: ${locationText}\n\nPlease call or come to my location.`;
+        
+        // Get primary hospital info for emergency message
+        let hospitalInfo = '';
+        if (userId) {
+          const primaryHospital = await getPrimaryHospital(userId);
+          if (primaryHospital) {
+            hospitalInfo = formatHospitalForEmergency(primaryHospital);
+          }
+        }
+        
+        const message = `🚨 EMERGENCY ALERT 🚨\n\nI need help immediately.\n\nMy location: ${locationText}${hospitalInfo}\n\nPlease call or come to my location.`;
 
         const phoneNumbers = emergencyContacts.map((c) => c.phone);
         

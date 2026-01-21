@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Animated,
   TextInput,
+  Text,
   Platform,
   KeyboardAvoidingView,
   Alert,
@@ -88,6 +89,11 @@ export function EditLocationCircleModal({
     }
   }, [visible, slideAnim, scaleAnim]);
 
+  const translateY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [300, 0],
+  });
+
   const handleGetCurrentLocation = async () => {
     setIsGettingLocation(true);
     try {
@@ -150,11 +156,6 @@ export function EditLocationCircleModal({
       ]
     );
   };
-
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [300, 0],
-  });
 
   return (
     <Modal

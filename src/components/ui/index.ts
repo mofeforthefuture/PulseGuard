@@ -10,3 +10,7 @@ export { Toggle } from './Toggle';
 export { SettingsItem } from './SettingsItem';
 export { SettingsSection } from './SettingsSection';
 export { PersonalitySelector } from './PersonalitySelector';
+export { QuickActionsGrid } from './QuickActionsGrid';
+export { RecentActivityCard } from './RecentActivityCard';
+export { BottomSheet } from './BottomSheet';
+export { FloatingActionButton } from './FloatingActionButton';
