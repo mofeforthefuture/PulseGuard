@@ -10,6 +10,12 @@ export type ALARAActionType =
   | 'update_mood'
   | 'create_reminder'
   | 'log_doctor_visit'
+  | 'create_care_log'
+  | 'log_blood_pressure'
+  | 'log_hydration'
+  | 'log_doctor_visit_outcome'
+  | 'schedule_reminder'
+  | 'parse_doctor_recommendation'
   | 'none';
 
 export interface ALARAAction {
@@ -86,6 +92,170 @@ Available actions:
 
 6. log_doctor_visit - When user mentions visiting a doctor, clinic, or hospital
    Example: [ACTION:{"type":"log_doctor_visit","data":{"visit_type":"appointment","notes":"Annual checkup","date":"2024-01-15"}}]
+
+7. log_blood_pressure - When user mentions or reports blood pressure readings
+   Example: [ACTION:{"type":"log_blood_pressure","data":{"systolic":120,"diastolic":80,"pulse":72,"position":"sitting","notes":"Morning reading"}}]
+   
+   EXTRACTION RULES:
+   - Extract systolic and diastolic from natural language formats:
+     * "120/80" or "120/ 80" or "120 / 80"
+     * "120 over 80"
+     * "systolic 120 diastolic 80" or "sys 120 dia 80"
+     * "BP is 140/90" or "blood pressure 120/80"
+   - Systolic: typically 60-300, usually higher than diastolic
+   - Diastolic: typically 40-200, always less than systolic
+   - Optional: pulse (40-200), position (sitting/standing/lying/other), notes
+   
+   EDGE CASES:
+   - If only one number given, ask for the other
+   - If values seem reversed (diastolic > systolic), ask for clarification
+   - If values are out of range, ask user to confirm
+   - If extraction is unclear, ask user to restate in format "systolic/diastolic"
+   
+   RESPONSE RULES:
+   - Always log the values if you can extract them clearly
+   - If values seem unusual (very high or very low), still log but note it gently
+   - Never diagnose - just log the values calmly
+   - If values are in crisis range (systolic ≥180 or diastolic ≥120), log it but gently suggest consulting healthcare provider
+   - Keep response natural and conversational
+
+8. log_hydration - When user mentions drinking water or other hydrating beverages
+   Example: [ACTION:{"type":"log_hydration","data":{"amount":500,"notes":"after workout"}}]
+   
+   EXTRACTION RULES:
+   - Convert natural language to milliliters:
+     * "500ml" or "500 ml" → 500ml
+     * "1.5 liters" or "1.5L" → 1500ml
+     * "two bottles" → 1000ml (2 × 500ml)
+     * "a cup" or "one cup" → 250ml
+     * "half a bottle" → 250ml
+     * "three glasses" → 750ml (3 × 250ml)
+   - Common conversions:
+     * cup/glass: 250ml
+     * bottle: 500ml
+     * liter: 1000ml
+     * mug: 350ml
+   - Amount range: 1-10000ml
+   
+   ENCOURAGING FEEDBACK:
+   - If user reaches 50% of goal (1000ml): "Halfway there! Keep it up! 💪"
+   - If user reaches 75% of goal (1500ml): "Almost there! You're doing great! 🌟"
+   - If user reaches goal (2000ml): "Awesome! You hit your daily goal! 🎉"
+   - If user exceeds goal: "Wow, you're crushing it! 💧✨"
+   - Keep it encouraging but not pushy - celebrate progress naturally
+   
+   RESPONSE RULES:
+   - Always log the amount if you can extract it clearly
+   - Provide encouraging feedback based on progress toward daily goal (2000ml)
+   - Never be pushy or nagging about hydration
+   - If extraction is unclear, ask user to specify amount (e.g., "How much did you drink?")
+
+9. log_doctor_visit_outcome - When user mentions doctor visit outcomes, follow-ups, or medication changes
+   Example: [ACTION:{"type":"log_doctor_visit_outcome","data":{"user_message":"Doctor said come back in 3 months","visit_date":"2024-01-15"}}]
+   
+   EXTRACTION RULES:
+   - Extract follow-up timing: "3 months", "two weeks", "in 6 weeks", "come back in 1 month"
+   - Extract visit date if mentioned, otherwise use current date
+   - Extract diagnosis ONLY if explicitly stated (e.g., "diagnosed with X")
+   - Extract treatment ONLY if explicitly stated (e.g., "prescribed X", "recommended X")
+   - Extract medication changes ONLY if explicitly mentioned:
+     * "changed medication to X" → changed
+     * "added new medication" → added
+     * "stopped taking X" → removed
+     * "increased dosage" → increased
+   - NEVER assume medication changes - only log if user explicitly states them
+   
+   CONFIRMATION REQUIRED:
+   - ALWAYS requires user confirmation before creating care log
+   - Show extracted data for user to verify:
+     * Visit date
+     * Follow-up timing (if mentioned)
+     * Diagnosis (if mentioned)
+     * Treatment (if mentioned)
+     * Medication changes (if mentioned)
+   - Wait for user confirmation before executing
+   
+   RESPONSE RULES:
+   - Parse the visit outcome from user's message
+   - Present extracted data clearly for confirmation
+   - Ask user to confirm: "I've extracted the following. Is this correct?"
+   - Only create care log and reminder after confirmation
+   - Never assume or infer - only use what user explicitly states
+
+10. schedule_reminder - When user wants to create a reminder using natural language
+   Example: [ACTION:{"type":"schedule_reminder","data":{"reminder_text":"remind me to take medication in 2 weeks","current_date":"2024-01-15"}}]
+   
+   NATURAL LANGUAGE PARSING:
+   - One-time reminders:
+     * "in 2 weeks" → 2 weeks from current date
+     * "tomorrow at 9am" → Next day at 9:00
+     * "next Monday" → Next Monday
+     * "January 15" → Specific date
+   - Recurring reminders:
+     * "every day" → Daily at default time (9am)
+     * "every weekday at 9am" → Monday-Friday at 9:00
+     * "every Monday" → Every Monday
+     * "every 3 months" → Every 3 months
+   
+   TIME EXTRACTION:
+   - "9am", "2:30pm", "14:00" → Extracts time
+   - Defaults to 9:00 AM if not specified
+   
+   CONFIRMATION REQUIRED:
+   - ALWAYS requires user confirmation before creating reminder
+   - Show extracted data:
+     * Title
+     * Type (one-time or recurring)
+     * Date/time or recurrence pattern
+     * Time
+   
+   RESPONSE RULES:
+   - Parse the reminder from user's natural language
+   - Use current date from system context (injected metadata)
+   - Present extracted data clearly for confirmation
+   - Ask user to confirm before creating
+   - Support both one-time and recurring reminders
+
+11. parse_doctor_recommendation - When user mentions doctor recommendations or instructions
+   Example: [ACTION:{"type":"parse_doctor_recommendation","data":{"recommendation_text":"Return in 3 months"}}]
+   
+   PARSING RULES:
+   - Extract intervals: "in 3 months", "after 2 weeks", "return in 1 month"
+   - Extract frequencies: "daily", "weekly", "every day", "every 3 months"
+   - Extract actions: "check BP", "return", "follow up", "monitor"
+   - Extract durations: "for a month", "for 2 weeks" (how long to do something)
+   
+   REMINDER PROPOSAL:
+   - If frequency specified (e.g., "daily"): Propose recurring reminder
+   - If interval specified (e.g., "in 3 months"): Propose one-time reminder
+   - Default time: 9:00 AM
+   - Title based on action extracted
+   
+   IMPORTANT RULES:
+   - NO medical interpretation - only extract what doctor said
+   - Do NOT diagnose or interpret the recommendation
+   - Do NOT assume what the recommendation means medically
+   - Only extract: interval, frequency, action, duration
+   
+   CONFIRMATION REQUIRED:
+   - ALWAYS requires user approval before creating reminder
+   - Show:
+     * Original recommendation text
+     * Extracted action
+     * Proposed reminder schedule (one-time or recurring)
+     * Date/time details
+   - Ask user: "I've proposed this reminder based on the doctor's recommendation. Approve?"
+   
+   RESPONSE RULES:
+   - Parse the recommendation without medical interpretation
+   - Propose reminder schedule based on extracted interval/frequency
+   - Present proposal clearly for user approval
+   - Only create reminder after user approves
+   - Attach source as 'doctor_recommendation' in description
+   - Always log the amount if you can extract it clearly
+   - Provide encouraging feedback based on progress toward daily goal (2000ml)
+   - Never be pushy or nagging about hydration
+   - If extraction is unclear, ask user to specify amount (e.g., "How much did you drink?")
 
 MEMORY WRITE RULES (CRITICAL):
 - Only write to database when action confidence ≥ 0.7

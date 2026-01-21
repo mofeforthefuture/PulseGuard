@@ -15,6 +15,7 @@ import {
 } from './memory';
 import { supabase } from '../supabase/client';
 import { checkIfCheckInNeeded, type CheckInStatus } from './checkInTracker';
+import { getFormattedDailyHealthSummary } from '../services/dailyHealthSummary';
 
 export interface ALARAContext {
   // Long-term memory
@@ -45,6 +46,9 @@ export interface ALARAContext {
 
   // Check-in status
   checkInStatus?: CheckInStatus;
+
+  // Daily health summary
+  dailyHealthSummary?: string;
 }
 
 /**
@@ -228,6 +232,16 @@ export async function buildALARAContext(
     // Check if daily check-in is needed
     const checkInStatus = await checkIfCheckInNeeded(userId);
 
+    // Load daily health summary (for better context awareness)
+    // This is done asynchronously and added to context string, not blocking
+    let dailyHealthSummary: string | undefined;
+    try {
+      dailyHealthSummary = await getFormattedDailyHealthSummary(userId);
+    } catch (error) {
+      console.warn('[Context] Error loading daily health summary (non-critical):', error);
+      // Continue without summary - it's not critical
+    }
+
     return {
       // Long-term
       firstName: longTerm.firstName,
@@ -254,6 +268,9 @@ export async function buildALARAContext(
 
       // Check-in status
       checkInStatus,
+
+      // Daily health summary
+      dailyHealthSummary,
     };
   } catch (error) {
     console.error('[Context] Error building ALARA context:', error);
@@ -358,12 +375,18 @@ export function buildContextString(context: ALARAContext | null): string {
     `Relationship: ${context.relationshipState.familiarityLevel} familiarity, ${context.relationshipState.toneTolerance} tone.`
   );
 
+  // Daily health summary (injected for better context awareness)
+  if (context.dailyHealthSummary) {
+    parts.push(`\n${context.dailyHealthSummary}`);
+  }
+
   return (
     `\n\nUser Context:\n${parts.join('\n')}\n\n` +
     `IMPORTANT MEMORY RULES:\n` +
     `- You do NOT have perfect memory. Use phrases like "last time you mentioned..." or "from what I remember..."\n` +
     `- If context is unclear, ask clarifying questions instead of guessing.\n` +
     `- Never claim to remember something you're not certain about.\n` +
-    `- Reference the conversation summary for patterns, not specific quotes.\n`
+    `- Reference the conversation summary for patterns, not specific quotes.\n` +
+    `- Use the daily health summary to provide relevant context, but don't quote it verbatim.\n`
   );
 }

@@ -9,6 +9,9 @@ import { updateConversationSummaryIfNeeded } from '../lib/openrouter/conversatio
 import { loadShortTermMemory } from '../lib/openrouter/memory';
 import { Audio } from 'expo-av';
 import Constants from 'expo-constants';
+import { ALARADataConfirmationSheet, type DataConfirmation, type BloodPressureData, type HydrationData, type AppointmentData } from '../components/alara/ALARADataConfirmationSheet';
+import { executeLogBloodPressure, executeLogHydration } from '../lib/openrouter/actionExecutors';
+import type { ALARAAction } from '../lib/openrouter/actions';
 
 export type ALARAState = 'idle' | 'calm' | 'reminder' | 'concern' | 'emergency' | 'thinking';
 
@@ -56,6 +59,11 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
   const [personality, setPersonality] = useState<ALARAPersonality>('friendly');
   const [hasPersonalitySet, setHasPersonalitySet] = useState(false);
   const previousStateRef = useRef<ALARAState>('idle');
+  
+  // Bottom sheet state for data confirmation
+  const [showDataConfirmationSheet, setShowDataConfirmationSheet] = useState(false);
+  const [dataConfirmationData, setDataConfirmationData] = useState<DataConfirmation | null>(null);
+  const [pendingUserMessage, setPendingUserMessage] = useState<string>(''); // Preserve context
   const soundRefs = useRef<{ messageSound: Audio.Sound | null; errorSound: Audio.Sound | null }>({
     messageSound: null,
     errorSound: null,
@@ -67,14 +75,14 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
       try {
         // Load message notification sound
         const { sound: messageSound } = await Audio.Sound.createAsync(
-          require('../assets/sounds/messageNotification.mp3'),
+          require('../../assets/sounds/messageNotification.mp3'),
           { shouldPlay: false, volume: 0.5 }
         );
         soundRefs.current.messageSound = messageSound;
 
         // Load error sound
         const { sound: errorSound } = await Audio.Sound.createAsync(
-          require('../assets/sounds/error.mp3'),
+          require('../../assets/sounds/error.mp3'),
           { shouldPlay: false, volume: 0.6 }
         );
         soundRefs.current.errorSound = errorSound;
@@ -300,10 +308,63 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
       );
       console.log('[ALARA] Received response from OpenRouter');
 
-      // Parse actions from response
+      // Parse tool calls and actions from response
       console.log('[ALARA] Parsing response, length:', rawResponse.length);
-      const { cleanMessage, actions } = parseActionsFromResponse(rawResponse);
-      console.log('[ALARA] Parsed message, actions count:', actions.length);
+      
+      // Check for OpenRouter tool calls first
+      let toolCalls: any[] = [];
+      let responseContent = rawResponse;
+      
+      const toolCallsMatch = rawResponse.match(/\[TOOL_CALLS:(.+?)\]/);
+      if (toolCallsMatch) {
+        try {
+          toolCalls = JSON.parse(toolCallsMatch[1]);
+          responseContent = rawResponse.replace(/\[TOOL_CALLS:.+?\]/, '').trim();
+          console.log('[ALARA] Found tool calls:', toolCalls.length);
+        } catch (error) {
+          console.error('[ALARA] Error parsing tool calls:', error);
+        }
+      }
+      
+      // Parse legacy actions format
+      const { cleanMessage, actions } = parseActionsFromResponse(responseContent);
+      console.log('[ALARA] Parsed message, actions count:', actions.length, 'tool calls:', toolCalls.length);
+      
+      // Convert OpenRouter tool calls to actions format
+      for (const toolCall of toolCalls) {
+        if (toolCall.function?.name === 'log_blood_pressure') {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            actions.push({
+              type: 'log_blood_pressure',
+              data: {
+                systolic: args.systolic,
+                diastolic: args.diastolic,
+                pulse: args.pulse,
+                position: args.position,
+                notes: args.notes,
+              },
+              confidence: 0.9, // High confidence for tool calls
+            });
+          } catch (error) {
+            console.error('[ALARA] Error parsing blood pressure tool call:', error);
+          }
+        } else if (toolCall.function?.name === 'log_hydration') {
+          try {
+            const args = JSON.parse(toolCall.function.arguments);
+            actions.push({
+              type: 'log_hydration',
+              data: {
+                amount: args.amount,
+                notes: args.notes,
+              },
+              confidence: 0.9, // High confidence for tool calls
+            });
+          } catch (error) {
+            console.error('[ALARA] Error parsing hydration tool call:', error);
+          }
+        }
+      }
 
       // Determine state based on response content (simple heuristic)
       // Check both user message and response for emergency
@@ -331,14 +392,181 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
         console.log('[ALARA] Executing actions:', actions);
         const actionResults = await executeActions(user.id, actions);
         
-        // Log results (could show to user if needed)
+        // Handle blood pressure results with confirmation for unusual values
+        let needsConfirmation = false;
+        let confirmationData: any = null;
+        let confirmationType: string | null = null;
+        let hydrationFeedback = '';
+        
+        let shouldShowBottomSheet = false;
+        let bottomSheetData: DataConfirmation | null = null;
+        
         actionResults.forEach((result, index) => {
           if (result.success) {
             console.log('[ALARA] Action succeeded:', actions[index].type, result.message);
+            
+            // Check if blood pressure needs confirmation (always show bottom sheet for BP)
+            if (actions[index].type === 'log_blood_pressure' && result.success) {
+              // Always show bottom sheet for BP to allow editing
+              const bpData: BloodPressureData = {
+                type: 'blood_pressure',
+                source: userMessage,
+                systolic: actions[index].data?.systolic,
+                diastolic: actions[index].data?.diastolic,
+                pulse: actions[index].data?.pulse,
+                position: actions[index].data?.position,
+                notes: actions[index].data?.notes,
+                isUnusual: result.data?.isUnusual,
+                abnormalReason: result.data?.abnormalReason,
+              };
+              shouldShowBottomSheet = true;
+              bottomSheetData = bpData;
+              cleanMessage = "I've extracted your blood pressure reading. Please review and confirm in the form below.";
+            }
+            
+            // Handle hydration logging - show bottom sheet for confirmation
+            if (actions[index].type === 'log_hydration' && result.success) {
+              // Always show bottom sheet for hydration to allow editing
+              const hydrationData: HydrationData = {
+                type: 'hydration',
+                source: userMessage,
+                amount: actions[index].data?.amount,
+                notes: actions[index].data?.notes,
+              };
+              shouldShowBottomSheet = true;
+              bottomSheetData = hydrationData;
+              cleanMessage = "I've extracted your hydration amount. Please review and confirm in the form below.";
+            }
+            
+            // Check if doctor visit outcome requires confirmation
+            if (actions[index].type === 'log_doctor_visit_outcome' && result.requiresConfirmation) {
+              needsConfirmation = true;
+              confirmationType = 'doctor_visit_outcome';
+              confirmationData = result.confirmationData || result.data;
+              
+              // Format confirmation message for ALARA response
+              const conf = result.confirmationData || {};
+              const parts: string[] = [];
+              parts.push(`Visit Date: ${conf.visitDate || 'Today'}`);
+              if (conf.followUpTiming && conf.followUpDate) {
+                parts.push(`Follow-up: ${conf.followUpTiming} (${conf.followUpDate})`);
+              }
+              if (conf.diagnosis) parts.push(`Diagnosis: ${conf.diagnosis}`);
+              if (conf.treatment) parts.push(`Treatment: ${conf.treatment}`);
+              if (conf.medicationChanges) parts.push(`Medication: ${conf.medicationChanges}`);
+              
+              cleanMessage = `I've extracted the following from your doctor visit:\n\n${parts.join('\n')}\n\nIs this correct? (Please confirm or let me know what to change)`;
+            }
+            
+            // Check if reminder scheduling requires confirmation
+            if (actions[index].type === 'schedule_reminder' && result.requiresConfirmation) {
+              needsConfirmation = true;
+              confirmationType = 'reminder';
+              confirmationData = result.confirmationData || result.data;
+              
+              // Format confirmation message for ALARA response
+              const conf = result.confirmationData || {};
+              const parts: string[] = [];
+              parts.push(`Title: ${conf.title}`);
+              if (conf.isRecurring) {
+                parts.push(`Type: Recurring`);
+                parts.push(`Days: ${conf.daysOfWeekFormatted || 'Every day'}`);
+                if (conf.interval) parts.push(`Interval: ${conf.interval}`);
+              } else {
+                parts.push(`Type: One-time`);
+                parts.push(`Date: ${conf.oneTimeDateFormatted || conf.oneTimeDate}`);
+              }
+              parts.push(`Time: ${conf.time || '09:00'}`);
+              
+              cleanMessage = `I've extracted the following reminder:\n\n${parts.join('\n')}\n\nIs this correct? (Please confirm or let me know what to change)`;
+            }
+            
+            // Check if doctor recommendation requires confirmation
+            if (actions[index].type === 'parse_doctor_recommendation' && result.requiresConfirmation) {
+              needsConfirmation = true;
+              confirmationType = 'doctor_recommendation';
+              confirmationData = result.confirmationData || result.data;
+              
+              // Format confirmation message for ALARA response
+              const conf = result.confirmationData || {};
+              const parts: string[] = [];
+              parts.push(`Doctor said: "${conf.recommendationText}"`);
+              if (conf.action) parts.push(`Action: ${conf.action}`);
+              parts.push(`\nProposed reminder:`);
+              parts.push(`Title: ${conf.proposedReminder?.title}`);
+              if (conf.proposedReminder?.isRecurring) {
+                parts.push(`Type: Recurring`);
+                parts.push(`Days: ${conf.proposedReminder.daysOfWeekFormatted || 'Every day'}`);
+                if (conf.proposedReminder.interval) parts.push(`Interval: ${conf.proposedReminder.interval}`);
+              } else {
+                parts.push(`Type: One-time`);
+                parts.push(`Date: ${conf.proposedReminder?.oneTimeDateFormatted || conf.proposedReminder?.oneTimeDate}`);
+              }
+              parts.push(`Time: ${conf.proposedReminder?.time || '09:00'}`);
+              
+              cleanMessage = `I've parsed the doctor's recommendation and proposed this reminder:\n\n${parts.join('\n')}\n\nWould you like to approve this reminder? (Yes/No/Edit)`;
+            }
+            
           } else {
             console.warn('[ALARA] Action failed:', actions[index].type, result.error);
+            
+            // If blood pressure logging failed, update response to mention it
+            if (actions[index].type === 'log_blood_pressure') {
+              const errorMsg = result.error || 'Failed to log blood pressure';
+              // Add error context to response (will be handled in final response)
+              if (errorMsg.includes('required') || errorMsg.includes('invalid')) {
+                cleanMessage = cleanMessage + ` (Note: I couldn't extract the blood pressure values clearly. Could you tell me the numbers again?)`;
+              }
+            }
+            
+            // If hydration logging failed, update response
+            if (actions[index].type === 'log_hydration') {
+              const errorMsg = result.error || 'Failed to log hydration';
+              if (errorMsg.includes('required') || errorMsg.includes('invalid')) {
+                cleanMessage = cleanMessage + ` (I couldn't figure out how much you drank. Could you tell me the amount? Like "500ml" or "two bottles"?)`;
+              }
+            }
           }
         });
+        
+        // Show bottom sheet if needed (after processing all actions)
+        if (shouldShowBottomSheet && bottomSheetData) {
+          setDataConfirmationData(bottomSheetData);
+          setShowDataConfirmationSheet(true);
+          setPendingUserMessage(userMessage); // Preserve context
+        }
+        
+        // If unusual BP value, add gentle flagging to response
+        if (needsConfirmation && confirmationData) {
+          const { systolic, diastolic, abnormalReason } = confirmationData;
+          let flagMessage = '';
+          
+          // Gentle flagging based on abnormal reason
+          if (abnormalReason === 'both_high' || abnormalReason === 'high_systolic' || abnormalReason === 'high_diastolic') {
+            if (systolic >= 180 || diastolic >= 120) {
+              flagMessage = ' I noticed this reading is quite high. If you\'re experiencing symptoms or this is unusual for you, please consider reaching out to your healthcare provider.';
+            } else {
+              flagMessage = ' I noticed this reading is a bit higher than normal. Keep an eye on it and consider mentioning it to your healthcare provider if it continues.';
+            }
+          } else if (abnormalReason === 'both_low' || abnormalReason === 'low_systolic' || abnormalReason === 'low_diastolic') {
+            flagMessage = ' I noticed this reading is lower than usual. If you\'re feeling dizzy or unwell, please consider checking with your healthcare provider.';
+          }
+          
+          if (flagMessage) {
+            // Update clean message to include gentle flagging
+            cleanMessage = cleanMessage.replace(/\.$/, '') + flagMessage;
+          }
+        }
+        
+        // Add hydration feedback if available
+        if (hydrationFeedback) {
+          // Replace the clean message with hydration feedback if it's just a generic response
+          if (cleanMessage.toLowerCase().includes('logged') || cleanMessage.toLowerCase().includes('got it')) {
+            cleanMessage = hydrationFeedback;
+          } else {
+            cleanMessage = cleanMessage + ' ' + hydrationFeedback;
+          }
+        }
       }
 
       console.log('[ALARA] Response received:', cleanMessage.substring(0, 50) + '...');
@@ -481,6 +709,92 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id, loadPersonality]);
 
+  // Handle bottom sheet confirmation
+  const handleDataConfirmation = useCallback(async (confirmedData: DataConfirmation) => {
+    if (!user?.id) return;
+
+    try {
+      let action: ALARAAction | null = null;
+
+      switch (confirmedData.type) {
+        case 'blood_pressure': {
+          const bpData = confirmedData as BloodPressureData;
+          action = {
+            type: 'log_blood_pressure',
+            data: {
+              systolic: bpData.systolic,
+              diastolic: bpData.diastolic,
+              pulse: bpData.pulse,
+              position: bpData.position,
+              notes: bpData.notes,
+            },
+            confidence: 1.0, // User confirmed
+          };
+          break;
+        }
+        case 'hydration': {
+          const hydrationData = confirmedData as HydrationData;
+          action = {
+            type: 'log_hydration',
+            data: {
+              amount: hydrationData.amount,
+              notes: hydrationData.notes,
+            },
+            confidence: 1.0, // User confirmed
+          };
+          break;
+        }
+        case 'appointment': {
+          // Appointment handling can be added later
+          console.log('[ALARA] Appointment confirmation not yet implemented');
+          break;
+        }
+      }
+
+      if (action) {
+        const results = await executeActions(user.id, [action]);
+        const result = results[0];
+
+        if (result.success) {
+          // Add success message to chat
+          const successMessage: ChatMessage = {
+            id: `success-${Date.now()}`,
+            text: result.message || 'Saved successfully! ✅',
+            isALARA: true,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, successMessage]);
+          saveMessage(successMessage).catch(console.error);
+        } else {
+          // Add error message to chat
+          const errorMessage: ChatMessage = {
+            id: `error-${Date.now()}`,
+            text: result.error || 'Failed to save. Please try again.',
+            isALARA: true,
+            timestamp: new Date(),
+          };
+          setChatHistory((prev) => [...prev, errorMessage]);
+        }
+      }
+
+      // Close bottom sheet
+      setShowDataConfirmationSheet(false);
+      setDataConfirmationData(null);
+      setPendingUserMessage('');
+    } catch (error) {
+      console.error('[ALARA] Error confirming data:', error);
+      setShowDataConfirmationSheet(false);
+      setDataConfirmationData(null);
+      setPendingUserMessage('');
+    }
+  }, [user?.id, saveMessage]);
+
+  const handleDataConfirmationCancel = useCallback(() => {
+    setShowDataConfirmationSheet(false);
+    setDataConfirmationData(null);
+    setPendingUserMessage('');
+  }, []);
+
   return (
     <ALARAContext.Provider
       value={{
@@ -499,9 +813,17 @@ export function ALARAProvider({ children }: { children: ReactNode }) {
         loadChatHistory,
         clearChatHistory,
         setPersonality: updatePersonality,
+        showDataConfirmationSheet,
+        dataConfirmationData,
       }}
     >
       {children}
+      <ALARADataConfirmationSheet
+        visible={showDataConfirmationSheet}
+        data={dataConfirmationData}
+        onConfirm={handleDataConfirmation}
+        onCancel={handleDataConfirmationCancel}
+      />
     </ALARAContext.Provider>
   );
 }
